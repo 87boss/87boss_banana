@@ -20,31 +20,22 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
     const [error, setError] = useState<string | null>(null);
 
     // 當選取的關鍵字改變時，更新最終的 Prompt
+    // 當選取的關鍵字改變時，更新最終的 Prompt
     useEffect(() => {
-        if (!fullPrompt) return;
+        // 如果沒有分析結果，不進行處理
+        if (keywords.length === 0) return;
 
-        // 如果有詳細提示詞，我們可以嘗試從中保留/移除關鍵字，或者簡單地將關鍵字附加到提示詞
-        // 但根據需求 "用戶可以藉由選取或是取消來決定該提示詞是否出現在下區的提示詞列表"
-        // 簡單的做法是：最終提示詞 = 選中的關鍵字 + (可選的詳細描述，但這裡我們只用關鍵字構建可能更好，或者將詳細描述視為一個大的"關鍵字"？)
+        const activeList = Array.from(activeKeywords);
+        const negativeList = keywords.filter(k => !activeKeywords.has(k));
 
-        // 更好的邏輯：
-        // AI 返回 { keywords: [...], detailedPrompt: "..." }
-        // Middle Area: keywords buttons.
-        // Bottom Area: The text area showing "Final Prompt".
+        let newPrompt = activeList.join(', ');
 
-        // Option A: Construct prompt purely from keywords.
-        // Option B: Detailed prompt is the base, keywords are extra tags.
+        if (negativeList.length > 0) {
+            newPrompt += `\n\n禁止元素 (Negative): ${negativeList.join(', ')}`;
+        }
 
-        // 根據用戶需求 4: "下區為AI完整的反推提示詞列表... 決定該提示詞是否出現"
-        // 這暗示下區的內容是由選中的關鍵字組成的。
-        // 因此：Final Prompt = Array.from(activeKeywords).join(', ');
-
-        const promptFromKeywords = Array.from(activeKeywords).join(', ');
-        setFinalPrompt(promptFromKeywords || fullPrompt); // 如果沒選關鍵字，可能顯示原fullPrompt或是空，這裡假設是用戶想組合
-
-        // 如果想要更智能一點，可以預設 fullPrompt 就是由 keywords 組成的，或者 keywords 是從 fullPrompt 提取的
-        // 這裡我們先採用：Final Prompt = activeKeywords.join(', ')，並預設全選
-    }, [activeKeywords, fullPrompt]);
+        setFinalPrompt(newPrompt);
+    }, [activeKeywords, keywords]);
 
     const handleAnalyze = async () => {
         if (files.length === 0) return;
