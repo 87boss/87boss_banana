@@ -13,6 +13,7 @@ const historyRouter = require('./routes/history');
 const filesRouter = require('./routes/files');
 const settingsRouter = require('./routes/settings');
 const desktopRouter = require('./routes/desktop');
+const updatesRouter = require('./routes/updates');
 
 const app = express();
 
@@ -30,24 +31,24 @@ app.use((req, res, next) => {
 
 // ============== 初始化目录和数据文件 ==============
 function initializeApp() {
-  console.log('=' .repeat(50));
+  console.log('='.repeat(50));
   console.log('🐧 企鹅艾洛魔法世界 - Node.js后端服务');
-  console.log('=' .repeat(50));
+  console.log('='.repeat(50));
   console.log();
-  
+
   // 创建必要的目录
   FileHandler.ensureDir(config.INPUT_DIR);
   FileHandler.ensureDir(config.OUTPUT_DIR);
   FileHandler.ensureDir(config.THUMBNAILS_DIR);
   FileHandler.ensureDir(config.DATA_DIR);
   FileHandler.ensureDir(config.CREATIVE_IMAGES_DIR);
-  
+
   // 初始化数据文件
   JsonStorage.init(config.CREATIVE_IDEAS_FILE, []);
   JsonStorage.init(config.HISTORY_FILE, []);
   JsonStorage.init(config.SETTINGS_FILE, { theme: 'dark' });
   JsonStorage.init(config.DESKTOP_ITEMS_FILE, []);
-  
+
   console.log();
 }
 
@@ -78,6 +79,7 @@ app.use('/api/history', historyRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/desktop', desktopRouter);
+app.use('/api/updates', updatesRouter);
 
 // 服务状态检查
 app.get('/api/status', (req, res) => {
@@ -101,9 +103,9 @@ app.get('*', (req, res) => {
   if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).json({ 
-      success: false, 
-      error: '前端资源未找到，请先运行 npm run build 构建前端' 
+    res.status(404).json({
+      success: false,
+      error: '前端资源未找到，请先运行 npm run build 构建前端'
     });
   }
 });
@@ -121,7 +123,7 @@ app.use((err, req, res, next) => {
 // ============== 启动服务器 ==============
 function startServer() {
   initializeApp();
-  
+
   const server = app.listen(config.PORT, config.HOST, () => {
     console.log('🚀 服务器启动成功!');
     console.log(`   地址: http://${config.HOST}:${config.PORT}`);

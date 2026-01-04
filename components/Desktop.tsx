@@ -116,6 +116,46 @@ export const Desktop: React.FC<DesktopProps> = ({
   const [showPreview, setShowPreview] = useState(false); // 是否显示预览（空格键控制）
   const [isFileDragging, setIsFileDragging] = useState(false); // 是否有文件被拖拽到桌面
 
+  // 更新相關狀態
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'updating' | 'success' | 'error'>('idle');
+  const [updateError, setUpdateError] = useState<string>('');
+
+  const handleCheckUpdate = async () => {
+    if (updateStatus !== 'idle' && updateStatus !== 'success' && updateStatus !== 'error') return;
+
+    setUpdateStatus('checking');
+    try {
+      // 1. 檢查更新
+      const checkRes = await fetch('/api/updates/check', { method: 'POST' });
+      const checkData = await checkRes.json();
+
+      if (!checkData.success) throw new Error(checkData.error);
+
+      if (checkData.data.hasUpdate) {
+        // 2. 如果有更新，直接執行更新
+        setUpdateStatus('updating');
+        const updateRes = await fetch('/api/updates/perform', { method: 'POST' });
+        const updateData = await updateRes.json();
+
+        if (!updateData.success) throw new Error(updateData.error);
+
+        setUpdateStatus('success');
+      } else {
+        alert('當前已是最新版本');
+        setUpdateStatus('idle');
+      }
+    } catch (e) {
+      console.error('Update failed:', e);
+      setUpdateStatus('error');
+      setUpdateError(e instanceof Error ? e.message : '更新失敗');
+      setTimeout(() => setUpdateStatus('idle'), 3000);
+    }
+  };
+
+  const handleRestart = () => {
+    window.location.reload();
+  };
+
   // 获取当前显示的项目（根据是否在文件夹或叠放内）- 使用 useMemo 优化
   const baseItems = useMemo(() => {
     if (openFolderId) {
@@ -1315,6 +1355,46 @@ export const Desktop: React.FC<DesktopProps> = ({
         >
           阿財AI學堂
         </a>
+
+        {/* 檢查更新按鈕 */}
+        {updateStatus === 'success' ? (
+          <button
+            onClick={handleRestart}
+            className="px-2 py-0.5 rounded cursor-pointer transition-colors bg-red-500 hover:bg-red-600 text-white flex items-center justify-center animate-pulse"
+            title="更新完成，請點擊重啟"
+            style={{
+              border: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            <RefreshIcon className="w-3 h-3 mr-1" />
+            重新啟動
+          </button>
+        ) : (
+          <button
+            onClick={handleCheckUpdate}
+            disabled={updateStatus === 'checking' || updateStatus === 'updating'}
+            className={`px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center justify-center ${updateStatus === 'error' ? 'bg-red-500/10 text-red-500 border-red-500/50' :
+                updateStatus === 'checking' || updateStatus === 'updating' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50' :
+                  'hover:bg-purple-500/10 hover:text-purple-500'
+              }`}
+            style={{
+              color: updateStatus === 'error' ? '#ef4444' : updateStatus === 'checking' || updateStatus === 'updating' ? '#eab308' : theme.colors.textSecondary,
+              border: `1px solid ${updateStatus === 'error' ? 'rgba(239,68,68,0.5)' : theme.colors.border}`,
+            }}
+            title={updateStatus === 'checking' ? '正在檢查...' : updateStatus === 'updating' ? '正在更新...' : '檢查更新'}
+          >
+            {updateStatus === 'checking' || updateStatus === 'updating' ? (
+              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+            ) : (
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            )}
+            {updateStatus === 'checking' ? '檢查中...' :
+              updateStatus === 'updating' ? '更新中...' :
+                updateStatus === 'error' ? '更新失敗' : '檢查更新'}
+          </button>
+        )}
       </div>
       {/* 搜索框 + 自动叠放 + 隐藏文件名按钮 - 右上角，留出中间标签空间 */}
       <div className="absolute top-14 right-6 z-20 flex items-center gap-2">

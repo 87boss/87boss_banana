@@ -29,6 +29,7 @@ import { downloadImage } from './services/export';
 import { ThemeProvider, useTheme, SnowfallEffect } from './contexts/ThemeContext';
 import { Desktop, createDesktopItemFromHistory, TOP_OFFSET } from './components/Desktop';
 import { HistoryDock } from './components/HistoryDock';
+import ReversePromptPanel from './components/ReversePromptPanel';
 
 
 interface LeftPanelProps {
@@ -3318,6 +3319,15 @@ const App: React.FC = () => {
           backendStatus={backendStatus}
         />
       </div>
+
+      {/* 圖片反推面板 */}
+      <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm">
+        <ReversePromptPanel
+          files={files}
+          onPromptGenerate={handleSetPrompt}
+        />
+      </div>
+
       <div className="relative flex-1 flex min-w-0">
         <Canvas
           view={view}
