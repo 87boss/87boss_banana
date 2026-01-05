@@ -13,20 +13,24 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
     const isDark = themeName !== 'light';
 
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [keywords, setKeywords] = useState<string[]>([]);
+    // keywords 現在是分類數組
+    const [categories, setCategories] = useState<{ name: string; keywords: string[] }[]>([]);
     const [activeKeywords, setActiveKeywords] = useState<Set<string>>(new Set());
     const [fullPrompt, setFullPrompt] = useState('');
     const [finalPrompt, setFinalPrompt] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [promptMode, setPromptMode] = useState<'general' | 'interior'>('general');
 
     // 當選取的關鍵字改變時，更新最終的 Prompt
     // 當選取的關鍵字改變時，更新最終的 Prompt
     useEffect(() => {
-        // 如果沒有分析結果，不進行處理
-        if (keywords.length === 0) return;
+        if (categories.length === 0) return;
 
         const activeList = Array.from(activeKeywords);
-        const negativeList = keywords.filter(k => !activeKeywords.has(k));
+
+        // 找出所有關鍵字
+        const allKeywords = categories.flatMap(c => c.keywords);
+        const negativeList = allKeywords.filter(k => !activeKeywords.has(k));
 
         let newPrompt = activeList.join(', ');
 
@@ -35,30 +39,31 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
         }
 
         setFinalPrompt(newPrompt);
-    }, [activeKeywords, keywords]);
+    }, [activeKeywords, categories]);
 
     const handleAnalyze = async () => {
         if (files.length === 0) return;
 
         setIsAnalyzing(true);
         setError(null);
-        setKeywords([]);
+        setCategories([]);
         setActiveKeywords(new Set());
         setFullPrompt('');
         setFinalPrompt('');
 
         try {
             // 只分析第一張圖
-            const result = await analyzeImageForPrompt(files[0]);
+            const result = await analyzeImageForPrompt(files[0], promptMode);
 
-            setKeywords(result.keywords);
-            // 預設全選
-            setActiveKeywords(new Set(result.keywords));
+            setCategories(result.categories);
+
+            // 預設全選所有關鍵字
+            const allKeywords = result.categories.flatMap(c => c.keywords);
+            setActiveKeywords(new Set(allKeywords));
+
             setFullPrompt(result.detailedPrompt);
 
-            // 初始顯示：如果 keywords 足夠豐富，直接用 keywords 組合，或者 mixing detailedPrompt
-            // 根據 "決定該提示詞是否出現在下區" -> 傾向於 list 模式
-            setFinalPrompt(result.keywords.join(', '));
+            setFinalPrompt(allKeywords.join(', '));
 
         } catch (err) {
             setError(err instanceof Error ? err.message : '分析失敗');
@@ -102,7 +107,29 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
     return (
         <div className="flex flex-col h-full p-4 gap-4 overflow-hidden">
             {/* Top Section: Analyze Button */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 flex flex-col gap-2">
+                {/* Mode Selector */}
+                <div className="flex bg-gray-500/10 p-1 rounded-xl">
+                    <button
+                        onClick={() => setPromptMode('general')}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all ${promptMode === 'general'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
+                            }`}
+                    >
+                        通用
+                    </button>
+                    <button
+                        onClick={() => setPromptMode('interior')}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all ${promptMode === 'interior'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
+                            }`}
+                    >
+                        室內設計
+                    </button>
+                </div>
+
                 <button
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}
@@ -136,22 +163,36 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
             <div className="flex-1 min-h-0 flex flex-col">
                 <h3 className="text-xs font-semibold mb-2 opacity-70 flex items-center justify-between">
                     <span>AI 提取關鍵字</span>
-                    <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded">{activeKeywords.size}/{keywords.length}</span>
+                    <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded">
+                        {activeKeywords.size} / {categories.reduce((acc, c) => acc + c.keywords.length, 0)}
+                    </span>
                 </h3>
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
-                    {keywords.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                            {keywords.map((keyword, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => toggleKeyword(keyword)}
-                                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 text-left ${activeKeywords.has(keyword)
-                                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.15)]'
-                                        : 'bg-transparent border-white/10 text-gray-400 hover:border-white/20 hover:bg-white/5'
-                                        }`}
-                                >
-                                    {keyword}
-                                </button>
+                    {categories.length > 0 ? (
+                        <div className="flex flex-col gap-4">
+                            {categories.map((category, catIdx) => (
+                                <div key={catIdx} className="space-y-2">
+                                    {/* 只有當有多個分類時，或分類名稱不是預設值時才顯示標題 */}
+                                    {(categories.length > 1 || category.name !== '關鍵字' && category.name !== '通用關鍵字') && (
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pl-1 border-l-2 border-blue-500/30">
+                                            {category.name}
+                                        </h4>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        {category.keywords.map((keyword, idx) => (
+                                            <button
+                                                key={`${catIdx}-${idx}`}
+                                                onClick={() => toggleKeyword(keyword)}
+                                                className={`px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 text-left ${activeKeywords.has(keyword)
+                                                    ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.15)]'
+                                                    : 'bg-transparent border-white/10 text-gray-400 hover:border-white/20 hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                {keyword}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     ) : (

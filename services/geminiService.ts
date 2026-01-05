@@ -801,7 +801,99 @@ Output the optimized prompt directly:`;
 /**
  * 圖片反推 - 分析圖片並提取關鍵字與詳細提示詞
  */
-export const analyzeImageForPrompt = async (file: File): Promise<{ keywords: string[], detailedPrompt: string }> => {
+// 室內設計反推規則
+const INTERIOR_DESIGN_PROMPT = `
+You are an expert Interior Design AI agent. Your task is to analyze the provided image and extract specific design details based on the following categories.
+
+Checklist & Keywords to Extract:
+1. Category: 天花板 (Ceiling)
+   - Check: Ceiling types, beams, moldings
+   - Keywords ex: 平釘天花板, 造型天花板, 軌道燈溝槽
+
+2. Category: 牆面 (Walls)
+   - Check: Wall materials, paint, panels
+   - Keywords ex: 大理石牆面, 實木貼皮, 藝術塗料, 清水模
+
+3. Category: 地面 (Floor)
+   - Check: Flooring materials, rugs
+   - Keywords ex: 超耐磨木地板, 石英磚, 盤多磨, 編織地毯
+
+4. Category: 櫃體 (Cabinetry)
+   - Check: Wardrobes, shelves, kitchen units
+   - Keywords ex: 系統衣櫃, 玻璃展示櫃, 中島吧台, 電視櫃
+
+5. Category: 傢俱 (Furniture)
+   - Check: Sofa, tables, chairs, beds
+   - Keywords ex: L型沙發, 實木餐桌, 單人扶手椅, 雙人床架
+
+6. Category: 家電設備 (Appliances)
+   - Check: Electronics, kitchen appliances
+   - Keywords ex: 壁掛電視, 嵌入式烤箱, 智慧冰箱
+
+7. Category: 軟裝與飾品 (Decor)
+   - Check: Curtains, art, plants, cushions
+   - Keywords ex: 蛇形簾, 抽象掛畫, 龜背芋, 抱枕
+
+8. Category: 材質與色彩 (Materials & Colors)
+   - Check: Textures, color palette
+   - Keywords ex: 淺橡木, 黃銅金屬, 奶茶色系, 莫蘭迪色
+
+9. Category: 燈具 (Fixtures)
+   - Check: Physical light fixtures (pendant, floor, recessed)
+   - Keywords ex: 線性吊燈, 崁燈, 落地燈, 壁燈
+
+10. Category: 燈光氛圍 (Lighting Atmosphere)
+    - Check: Light quality, temperature, shadows, natural light
+    - Keywords ex: 間接照明, 暖白光 (3000K), 自然光, 電影感光影
+
+11. Category: 室內風格 (Interior Style)
+    - Check: Overall design style, era
+    - Keywords ex: 現代簡約風, 北歐風, 工業風, 日式無印風
+
+12. Category: 攝影鏡頭 (Camera)
+    - Check: Camera angle, focal length, depth of field
+    - Keywords ex: 廣角鏡頭, 景深效果, 正視圖, 建築攝影
+
+Output must be a valid JSON object with the following structure:
+{
+  "categories": [
+    { "name": "天花板", "keywords": ["keyword1", "keyword2"] },
+    { "name": "牆面", "keywords": ["keyword1", "keyword2"] },
+    ...
+  ],
+  "detailedPrompt": "A detailed, descriptive prompt..." // A professional interior design prompt incorporating the extracted details, in Traditional Chinese (繁體中文).
+}
+
+Rules:
+1. Keywords must be in Traditional Chinese (繁體中文).
+2. The detailedPrompt must be in Traditional Chinese (繁體中文).
+3. Ensure strictly categorize keywords. If a category has no relevant details, leave keywords empty.
+4. Respond ONLY with the JSON string.
+`;
+
+const GENERAL_PROMPT = `You are an expert AI image analysis agent. Your task is to analyze the provided image and extract relevant information.
+
+Output must be a valid JSON object with the following structure:
+{
+  "categories": [
+    { "name": "通用關鍵字", "keywords": ["keyword1", "keyword2", ...] } // Extract 15-20 distinctive visual keywords in Traditional Chinese.
+  ],
+  "detailedPrompt": "..." // A comprehensive prompt in Traditional Chinese.
+}
+
+Rules:
+1. Keywords must be in Traditional Chinese (繁體中文).
+2. The detailedPrompt must be in Traditional Chinese (繁體中文).
+3. Respond ONLY with the JSON string.
+`;
+
+/**
+ * 圖片反推 - 分析圖片並提取關鍵字與詳細提示詞
+ */
+export const analyzeImageForPrompt = async (
+  file: File,
+  mode: 'general' | 'interior' = 'general'
+): Promise<{ categories: { name: string; keywords: string[] }[]; detailedPrompt: string }> => {
   const useThirdParty = thirdPartyConfig && thirdPartyConfig.enabled && thirdPartyConfig.apiKey;
 
   if (!useThirdParty && !ai) {
@@ -811,22 +903,9 @@ export const analyzeImageForPrompt = async (file: File): Promise<{ keywords: str
   // 使用 Gemini 2.0 Flash (更快且多模態效果好) 或 Gemini 3 Pro (如果可用)
   const model = 'gemini-2.0-flash';
 
-  const systemInstruction = `You are an expert AI image analysis agent. Your task is to analyze the provided image and extract relevant information for image generation.
+  const systemInstruction = mode === 'interior' ? INTERIOR_DESIGN_PROMPT : GENERAL_PROMPT;
 
-Output must be a valid JSON object with the following structure:
-{
-  "keywords": ["keyword1", "keyword2", ...], // Extract 10-20 distinct visual keywords (style, lighting, composition, subject, color, mood, etc.) in Traditional Chinese (繁體中文).
-  "detailedPrompt": "A detailed, descriptive prompt..." // A comprehensive, high-quality image generation prompt describing the image in Traditional Chinese (繁體中文).
-}
-
-Rules:
-1. Keywords must be in Traditional Chinese (繁體中文).
-2. The detailedPrompt must be in Traditional Chinese (繁體中文).
-3. Keywords should be concise (1-3 words max).
-4. The detailedPrompt should be ready-to-use for image generation.
-5. Respond ONLY with the JSON string. Do not use markdown code blocks.`;
-
-  const userMessage = "Analyze this image and provide keywords and a detailed prompt in JSON format. OUTPUT MUST BE IN TRADITIONAL CHINESE.";
+  const userMessage = "Analyze this image and provide categorized keywords and a detailed prompt in JSON format. OUTPUT MUST BE IN TRADITIONAL CHINESE.";
 
   let resultText = '';
 
@@ -855,8 +934,23 @@ Rules:
 
     const result = JSON.parse(jsonStr);
 
+    // 兼容舊格式 (如果AI返回了舊格式)
+    let categories: { name: string; keywords: string[] }[] = [];
+    if (Array.isArray(result.categories)) {
+      categories = result.categories;
+    } else if (Array.isArray(result.keywords)) {
+      // 舊版回傳格式 Array of strings
+      categories = [{ name: '關鍵字', keywords: result.keywords }];
+    } else if (typeof result.keywords === 'object') {
+      // 舊版回傳格式 Object (key: []string)
+      categories = Object.entries(result.keywords).map(([name, kws]) => ({
+        name,
+        keywords: Array.isArray(kws) ? (kws as string[]) : []
+      }));
+    }
+
     return {
-      keywords: Array.isArray(result.keywords) ? result.keywords : [],
+      categories: categories,
       detailedPrompt: typeof result.detailedPrompt === 'string' ? result.detailedPrompt : ''
     };
   } catch (error) {
