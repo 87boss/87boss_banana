@@ -16,6 +16,7 @@ import { SettingsIcon } from './components/icons/SettingsIcon';
 import { BoltIcon } from './components/icons/BoltIcon';
 import { PlusCircleIcon } from './components/icons/PlusCircleIcon';
 import { GenerateButton } from './components/GenerateButton';
+import { BatchGenerateButton } from './components/BatchGenerateButton';
 import { PenguinIcon } from './components/icons/PenguinIcon';
 import { PIcon, PlugIcon, DiamondIcon, WarningIcon } from './components/icons/PIcon';
 import { ImageIcon } from './components/icons/ImageIcon';
@@ -134,6 +135,8 @@ interface CanvasProps {
   onFileDrop?: (files: FileList) => void;
   // 从图片创建创意库
   onCreateCreativeIdea?: (imageUrl: string, prompt?: string, aspectRatio?: string, resolution?: string) => void;
+  // 上传到素材 (替换模式)
+  onSetCreativeAssets?: (items: DesktopImageItem[]) => void;
   // 最小化结果状态
   isResultMinimized: boolean;
   setIsResultMinimized: (value: boolean) => void;
@@ -1443,6 +1446,7 @@ const Canvas: React.FC<CanvasProps> = ({
   onDesktopImageRegenerate,
   onFileDrop,
   onCreateCreativeIdea,
+  onSetCreativeAssets,
   isResultMinimized,
   setIsResultMinimized,
   onToggleFavorite,
@@ -1545,6 +1549,7 @@ const Canvas: React.FC<CanvasProps> = ({
           creativeIdeas={creativeIdeas}
           onFileDrop={onFileDrop}
           onCreateCreativeIdea={onCreateCreativeIdea}
+          onSetCreativeAssets={onSetCreativeAssets}
         />
 
         {/* 生成结果浮层 - 毛玻璃效果 + 最小化联动 */}
@@ -2963,6 +2968,114 @@ const App: React.FC = () => {
     }
   }, [files, prompt, apiKey, thirdPartyApiConfig, activeSmartTemplate, activeSmartPlusTemplate, activeBPTemplate, autoSave, downloadImage, aspectRatio, imageSize, activeCreativeIdea, findNextFreePosition, handleAddToDesktop, bpInputs, smartPlusOverrides, batchCount, desktopItems, saveToHistory]);
 
+  const handleBatchGenerate = useCallback(async () => {
+    // 基础检查
+    if (files.length < 2) {
+      alert("批量生成至少需要 2 張圖片 (1 張風格圖 + 1 張以上草稿圖)");
+      return;
+    }
+
+    const hasValidApi = apiKey || (thirdPartyApiConfig.enabled && thirdPartyApiConfig.apiKey);
+    if (!hasValidApi) {
+      setError('请先配置 API Key');
+      setStatus(ApiStatus.Error);
+      return;
+    }
+
+    // 准备任务
+    const styleRef = files[0];
+    const sketches = files.slice(1);
+    const tasksCount = sketches.length;
+
+    console.log(`[Batch] 啟動批量生成: 1 張風格圖 + ${tasksCount} 張草稿圖`);
+
+    // 1. 创建所有占位符
+    const placeholderItems: DesktopImageItem[] = [];
+    const baseItemName = prompt.slice(0, 10) || "Batch";
+
+    // 查找起始空闲位置
+    let startPos = findNextFreePosition();
+    // 如果该位置已被占用（findNextFreePosition有时可能返回重叠位置，简单起见我们每次都重新找或递增）
+    // 为了简单且不重叠，我们横向排列，但要注意 findNextFreePosition 返回的是第一个空位
+
+    for (let i = 0; i < tasksCount; i++) {
+      // 简单的排列策略：在找到的空位后横向延伸
+      const pos = { x: startPos.x + (i * 110), y: startPos.y };
+
+      const placeholder: DesktopImageItem = {
+        id: `batch-${Date.now()}-${i}`,
+        type: 'image',
+        name: `${baseItemName} #${i + 1}`,
+        position: pos,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        imageUrl: '',
+        prompt: prompt, // 保存当前提示词
+        model: thirdPartyApiConfig.enabled ? 'nano-banana-2' : 'Gemini',
+        isThirdParty: thirdPartyApiConfig.enabled,
+        isLoading: true,
+      };
+      placeholderItems.push(placeholder);
+    }
+
+    // 添加到桌面
+    const newItems = [...desktopItems, ...placeholderItems];
+    setDesktopItems(newItems);
+    safeDesktopSave(newItems);
+
+    setError(null);
+
+    // 2. 并发执行任务
+    const promises = sketches.map(async (sketch, index) => {
+      const placeholder = placeholderItems[index];
+      const taskFiles = [styleRef, sketch]; // [Style, Sketch]
+
+      try {
+        // 复用 editImageWithGemini 逻辑
+        const result = await editImageWithGemini(
+          taskFiles,
+          prompt,
+          { aspectRatio, imageSize },
+          activeCreativeIdea?.cost
+        );
+
+        if (result.imageUrl) {
+          // 保存历史
+          const saveResult = await saveToHistory(
+            result.imageUrl,
+            prompt,
+            thirdPartyApiConfig.enabled,
+            taskFiles
+          );
+
+          const localUrl = saveResult?.localImageUrl || result.imageUrl;
+
+          // 更新成功状态
+          setDesktopItems(prev => prev.map(item =>
+            item.id === placeholder.id
+              ? { ...item, imageUrl: localUrl, isLoading: false, historyId: saveResult?.historyId } as DesktopImageItem
+              : item
+          ));
+        } else {
+          throw new Error("No image returned");
+        }
+      } catch (e: any) {
+        const errMsg = e.message || "Failed";
+        console.error(`[Batch] Task ${index} failed:`, e);
+        // 更新失败状态
+        setDesktopItems(prev => prev.map(item =>
+          item.id === placeholder.id
+            ? { ...item, isLoading: false, loadingError: errMsg } as DesktopImageItem
+            : item
+        ));
+      }
+    });
+
+    await Promise.all(promises);
+    console.log("[Batch] 全部完成");
+
+  }, [files, apiKey, thirdPartyApiConfig, prompt, aspectRatio, imageSize, activeCreativeIdea, desktopItems, findNextFreePosition, safeDesktopSave, saveToHistory]);
+
   // 卸载创意库：清空所有模板设置和提示词
   const handleClearTemplate = useCallback(() => {
     setActiveSmartTemplate(null);
@@ -3105,26 +3218,58 @@ const App: React.FC = () => {
     setPreviewImageUrl(item.imageUrl);
   }, []);
 
-  // 桌面图片操作 - 再编辑（将图片添加到上传列表，不携带提示词）
+  // 桌面图片操作 - 再编辑（追加模式）
   const handleDesktopImageEditAgain = useCallback(async (item: DesktopImageItem) => {
     try {
-      // 将图片URL转换为File对象
+      if (!item.imageUrl) return;
+
       const response = await fetch(item.imageUrl);
       const blob = await response.blob();
-      const file = new File([blob], `${item.name}.png`, { type: 'image/png' });
+      const file = new File([blob], `${item.name}-${Date.now()}.png`, { type: 'image/png' });
 
-      // 添加到文件列表
       setFiles(prev => [...prev, file]);
-      setActiveFileIndex(files.length); // 选中新添加的图片
-
-      // 不携带提示词 - 让用户重新输入
-      // if (item.prompt) {
-      //   setPrompt(item.prompt);
-      // }
+      setActiveFileIndex(files.length);
     } catch (e) {
       console.error('添加图片到编辑列表失败:', e);
     }
   }, [files.length]);
+
+  // 桌面图片操作 - 设置为素材（替换现有列表）
+  // 这解决了用户反馈的“追加导致生成上下文混淆”的问题，改为彻底替换，相当于“刷新+上传”
+  const handleSetCreativeAssets = useCallback(async (items: DesktopImageItem[]) => {
+    try {
+      if (items.length === 0) return;
+
+      const newFiles: File[] = [];
+
+      // 串行下载转换，确保顺序
+      for (const item of items) {
+        if (!item.imageUrl) continue;
+
+        // 将图片URL转换为File对象
+        const response = await fetch(item.imageUrl);
+        const blob = await response.blob();
+        // 使用时间戳确保唯一性，避免重名缓存问题
+        const file = new File([blob], `${item.name}-${Date.now()}.png`, { type: 'image/png' });
+        newFiles.push(file);
+      }
+
+      if (newFiles.length > 0) {
+        // 替换文件列表
+        setFiles(newFiles);
+        setActiveFileIndex(0); // 选中第一张
+
+        // 可选：如果不希望自动带入第一张的提示词，这里可以清空
+        // setPrompt(''); 
+
+        // 切换回编辑视图（虽然通常已经在编辑视图）
+        // setView('editor');
+      }
+    } catch (e) {
+      console.error('设置素材失败:', e);
+      setError('无法设置素材，请重试');
+    }
+  }, []);
 
   // 桌面图片操作 - 重新生成（只恢复状态，不自动生成）
   const handleDesktopImageRegenerate = useCallback(async (item: DesktopImageItem) => {
@@ -3376,6 +3521,7 @@ const App: React.FC = () => {
           onDesktopImageRegenerate={handleDesktopImageRegenerate}
           onFileDrop={handleFileSelection}
           onCreateCreativeIdea={handleCreateCreativeIdeaFromImage}
+          onSetCreativeAssets={handleSetCreativeAssets}
           isResultMinimized={isResultMinimized}
           setIsResultMinimized={setIsResultMinimized}
           onToggleFavorite={handleToggleFavorite}
@@ -3412,6 +3558,17 @@ const App: React.FC = () => {
               hasMinimizedResult={isResultMinimized && (status === ApiStatus.Loading || status === ApiStatus.Success || status === ApiStatus.Error)}
               onExpandResult={() => setIsResultMinimized(false)}
             />
+            {/* 批量生成按钮 */}
+            {files.length >= 2 && (
+              <div className="animate-in fade-in zoom-in duration-300 ml-2">
+                <BatchGenerateButton
+                  onClick={handleBatchGenerate}
+                  disabled={status === ApiStatus.Loading} // 全局Loading时禁用，虽然批量本身是独立的Loading状态
+                  status={ApiStatus.Idle} // 批量生成不使用全局status显示loading，而是各自item显示
+                  count={files.length - 1}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

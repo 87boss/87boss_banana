@@ -16,6 +16,8 @@ import { PackageIcon } from './icons/PackageIcon';
 import { MoveOutIcon } from './icons/MoveOutIcon';
 import { RenameIcon } from './icons/RenameIcon';
 import { LibraryIcon } from './icons/LibraryIcon';
+import { LibraryIcon } from './icons/LibraryIcon';
+import { UploadIcon } from './icons/UploadIcon';
 import { LayersIcon } from './icons/GridIcon';
 // JSZip 导出逻辑已迁移到 services/export/desktopExporter.ts
 import { exportAsZip, batchDownloadImages, downloadSingleImage } from '../services/export';
@@ -47,6 +49,8 @@ interface DesktopProps {
   onFileDrop?: (files: FileList) => void;
   // 从图片创建创意库
   onCreateCreativeIdea?: (imageUrl: string, prompt?: string, aspectRatio?: string, resolution?: string) => void;
+  // 上传到素材 (替换模式)
+  onSetCreativeAssets?: (items: DesktopImageItem[]) => void;
 }
 
 const GRID_SIZE = 100; // 网格大小
@@ -86,6 +90,7 @@ export const Desktop: React.FC<DesktopProps> = ({
   creativeIdeas = [],
   onFileDrop,
   onCreateCreativeIdea,
+  onSetCreativeAssets,
 }) => {
   const { theme, themeName } = useTheme();
   const isLight = themeName === 'light';
@@ -204,8 +209,16 @@ export const Desktop: React.FC<DesktopProps> = ({
   }, []);
 
   // 动态计算最大边界，不再固定行列
+  // 计算内容区域高度：现有项目最低点 + 额外空间 vs 容器高度
+  const contentHeight = useMemo(() => {
+    if (items.length === 0) return containerHeight;
+    const maxItemY = Math.max(...items.map(i => i.position.y + ICON_SIZE));
+    return Math.max(containerHeight, maxItemY + 500); // 底部留白
+  }, [items, containerHeight]);
+
   const maxX = Math.max(0, Math.floor((containerWidth - PADDING * 2 - ICON_SIZE) / gridSize) * gridSize);
-  const maxY = Math.max(0, Math.floor((containerHeight - TOP_OFFSET - ICON_SIZE - PADDING) / gridSize) * gridSize);
+  // maxY 允许扩展到内容高度
+  const maxY = Math.max(0, Math.floor((contentHeight - TOP_OFFSET - ICON_SIZE - PADDING) / gridSize) * gridSize);
 
   // 左右边距，简单的固定边距
   const horizontalPadding = PADDING;
@@ -1275,7 +1288,7 @@ export const Desktop: React.FC<DesktopProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden select-none"
+      className="relative w-full h-full overflow-y-auto custom-scrollbar select-none"
       style={{
         backgroundColor: theme.colors.bgPrimary,
         backgroundImage: `radial-gradient(${theme.colors.border} 1px, transparent 1px)`,
@@ -1292,6 +1305,19 @@ export const Desktop: React.FC<DesktopProps> = ({
       onDragLeave={handleFileDragLeave}
       onDrop={handleFileDrop}
     >
+      {/* 隐形占位符，撑开高度以允许滚动 */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '1px',
+          height: contentHeight,
+          pointerEvents: 'none',
+          zIndex: -1
+        }}
+      />
+
       {/* 文件拖放提示遮罩 */}
       {isFileDragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -1374,8 +1400,8 @@ export const Desktop: React.FC<DesktopProps> = ({
             onClick={handleCheckUpdate}
             disabled={updateStatus === 'checking' || updateStatus === 'updating'}
             className={`px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center justify-center ${updateStatus === 'error' ? 'bg-red-500/10 text-red-500 border-red-500/50' :
-                updateStatus === 'checking' || updateStatus === 'updating' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50' :
-                  'hover:bg-purple-500/10 hover:text-purple-500'
+              updateStatus === 'checking' || updateStatus === 'updating' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/50' :
+                'hover:bg-purple-500/10 hover:text-purple-500'
               }`}
             style={{
               color: updateStatus === 'error' ? '#ef4444' : updateStatus === 'checking' || updateStatus === 'updating' ? '#eab308' : theme.colors.textSecondary,
@@ -2001,6 +2027,24 @@ export const Desktop: React.FC<DesktopProps> = ({
                     >
                       <RefreshIcon className="w-4 h-4 text-emerald-400" />
                       <span>重生成</span>
+                      <RefreshIcon className="w-4 h-4 text-emerald-400" />
+                      <span>重生成</span>
+                    </button>
+                  )}
+
+                  {/* 上传到素材 - 橙色 */}
+                  {onSetCreativeAssets && (
+                    <button
+                      onClick={() => {
+                        const item = items.find(i => i.id === contextMenu.itemId) as DesktopImageItem;
+                        if (item) onSetCreativeAssets([item]);
+                        setContextMenu(null);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] hover:bg-orange-500/10 transition-colors flex items-center gap-2"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      <UploadIcon className="w-4 h-4 text-orange-400" />
+                      <span>上傳到素材</span>
                     </button>
                   )}
                   {/* 创建创意库 - 蓝色 */}
@@ -2120,6 +2164,28 @@ export const Desktop: React.FC<DesktopProps> = ({
                       <span>编辑选中图片 ({selectedIds.filter(id => items.find(i => i.id === id)?.type === 'image').length})</span>
                     </button>
                   )}
+                  {/* 上传到素材 - 橙色 */}
+                  {onSetCreativeAssets && (
+                    <button
+                      onClick={async () => {
+                        // 获取所有选中的图片类型项目
+                        const selectedImages = selectedIds
+                          .map(id => items.find(i => i.id === id))
+                          .filter((item): item is DesktopImageItem => item?.type === 'image');
+
+                        // 批量替换
+                        if (selectedImages.length > 0) {
+                          onSetCreativeAssets(selectedImages);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] hover:bg-orange-500/10 transition-colors flex items-center gap-2"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      <UploadIcon className="w-4 h-4 text-orange-400" />
+                      <span>上傳到素材 ({selectedIds.filter(id => items.find(i => i.id === id)?.type === 'image').length})</span>
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       await handleExportSelected(true);
@@ -2155,8 +2221,9 @@ export const Desktop: React.FC<DesktopProps> = ({
             </>
           )}
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 
