@@ -31,6 +31,7 @@ import { ThemeProvider, useTheme, SnowfallEffect } from './contexts/ThemeContext
 import { Desktop, createDesktopItemFromHistory, TOP_OFFSET } from './components/Desktop';
 import { HistoryDock } from './components/HistoryDock';
 import ReversePromptPanel from './components/ReversePromptPanel';
+import { CameraAngleController } from './components/CameraAngleController';
 
 
 interface LeftPanelProps {
@@ -1476,7 +1477,7 @@ const Canvas: React.FC<CanvasProps> = ({
       )}
 
       {/* 顶部切换标签 */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[60] liquid-tabs">
+      <div className="absolute top-3 left-4 z-[60] liquid-tabs">
         <button
           onClick={() => setView('editor')}
           className={`liquid-tab flex items-center gap-1 ${view === 'editor' ? 'active' : ''
@@ -3470,6 +3471,30 @@ const App: React.FC = () => {
         <ReversePromptPanel
           files={files}
           onPromptGenerate={handleSetPrompt}
+        />
+      </div>
+
+      {/* 拍攝角度控制器 */}
+      <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300">
+        <CameraAngleController
+          onApply={(newPrompt) => {
+            handleSetPrompt(prev => {
+              // 檢查是否存在舊的 <sks> 標籤
+              const sksIndex = prev.indexOf('<sks>');
+              if (sksIndex !== -1) {
+                // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
+                const before = prev.substring(0, sksIndex).trim();
+                const cleanBefore = before.replace(/,\s*$/, '');
+                return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
+              }
+
+              // 如果不存在，則直接追加
+              const trimmed = prev.trim();
+              if (!trimmed) return newPrompt;
+              if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
+              return trimmed + ', ' + newPrompt;
+            });
+          }}
         />
       </div>
 

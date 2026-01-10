@@ -208,6 +208,50 @@ export const Desktop: React.FC<DesktopProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  // 自動排列：當容器寬度改變時，確保所有項目在邊界內，並自動換行
+  useEffect(() => {
+    if (containerWidth === 0 || items.length === 0) return;
+
+    // 計算最大列數
+    const maxCols = Math.max(1, Math.floor((containerWidth - PADDING * 2) / gridSize));
+
+    // 檢查是否有項目超出邊界
+    const needsRearrange = items.some(item => {
+      const col = Math.round(item.position.x / gridSize);
+      return col >= maxCols;
+    });
+
+    // 如果有項目超出邊界，或者需要執行強制自動排列（這裡我們採用較溫和的策略：只在溢出時重排，或者可以選擇總是重排）
+    // 根據用戶需求 "自動排列以及自動下一列"，建議總是保持網格流動佈局，或者至少處理溢出
+    if (needsRearrange) {
+      // 按當前位置排序（先Y後X），保持相對順序
+      const sortedItems = [...items].sort((a, b) => {
+        const rowA = Math.round(a.position.y / gridSize);
+        const rowB = Math.round(b.position.y / gridSize);
+        if (rowA !== rowB) return rowA - rowB;
+        return a.position.x - b.position.x;
+      });
+
+      let hasChanges = false;
+      const newItems = sortedItems.map((item, index) => {
+        const col = index % maxCols;
+        const row = Math.floor(index / maxCols);
+        const newX = col * gridSize;
+        const newY = row * gridSize;
+
+        if (item.position.x !== newX || item.position.y !== newY) {
+          hasChanges = true;
+          return { ...item, position: { x: newX, y: newY }, updatedAt: Date.now() };
+        }
+        return item;
+      });
+
+      if (hasChanges) {
+        onItemsChange(newItems);
+      }
+    }
+  }, [containerWidth, items.length]); // 依賴項：寬度改變 或 項目數量改變 (新增/刪除) 時檢查
+
   // 动态计算最大边界，不再固定行列
   // 计算内容区域高度：现有项目最低点 + 额外空间 vs 容器高度
   const contentHeight = useMemo(() => {
