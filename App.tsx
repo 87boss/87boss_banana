@@ -32,6 +32,7 @@ import { Desktop, createDesktopItemFromHistory, TOP_OFFSET } from './components/
 import { HistoryDock } from './components/HistoryDock';
 import ReversePromptPanel from './components/ReversePromptPanel';
 import { CameraAngleController } from './components/CameraAngleController';
+import { InteriorDesignPanel } from './components/InteriorDesignPanel';
 
 
 interface LeftPanelProps {
@@ -73,7 +74,7 @@ interface RightPanelProps {
   creativeIdeas: CreativeIdea[];
   handleUseCreativeIdea: (idea: CreativeIdea) => void;
   setAddIdeaModalOpen: (isOpen: boolean) => void;
-  setView: (view: 'editor' | 'local-library') => void;
+  setView: (view: 'editor' | 'local-library' | 'interior-design') => void;
   onDeleteIdea: (id: number) => void;
   onEditIdea: (idea: CreativeIdea) => void;
   onToggleFavorite?: (id: number) => void; // 切换收藏状态
@@ -81,8 +82,8 @@ interface RightPanelProps {
 }
 
 interface CanvasProps {
-  view: 'editor' | 'local-library';
-  setView: (view: 'editor' | 'local-library') => void;
+  view: 'editor' | 'local-library' | 'interior-design';
+  setView: (view: 'editor' | 'local-library' | 'interior-design') => void;
   files: File[];
   onUploadClick: () => void;
   creativeIdeas: CreativeIdea[];
@@ -1503,30 +1504,58 @@ const Canvas: React.FC<CanvasProps> = ({
             </span>
           )}
         </button>
+        <button
+          onClick={() => setView('interior-design')}
+          className={`liquid-tab flex items-center gap-1 ${view === 'interior-design' ? 'active' : ''
+            }`}
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          室內設計
+          <span className="px-1 py-0.5 text-[8px] rounded bg-yellow-500/20 text-yellow-300 font-medium border border-yellow-500/30">
+            BETA
+          </span>
+        </button>
 
       </div>
 
-      {view === 'local-library' ? (
-        /* 创意库全屏显示 - 支持卡片拖拽排序 */
-        <div className="absolute inset-0 z-50 pt-12">
-          <CreativeLibrary
-            ideas={localCreativeIdeas}
-            onBack={onBack}
-            onAdd={onAdd}
-            onDelete={onDelete}
-            onDeleteMultiple={onDeleteMultiple}
-            onEdit={onEdit}
-            onUse={onUse}
-            onExport={onExportIdeas}
-            onImport={onImportIdeas}
-            onImportById={onImportById}
-            onReorder={onReorderIdeas}
-            onToggleFavorite={onToggleFavorite}
-            isImporting={isImporting}
-            isImportingById={isImportingById}
-          />
-        </div>
-      ) : null}
+
+
+      {
+        view === 'local-library' ? (
+          /* 创意库全屏显示 - 支持卡片拖拽排序 */
+          <div className="absolute inset-0 z-50 pt-12">
+            <CreativeLibrary
+              ideas={localCreativeIdeas}
+              onBack={onBack}
+              onAdd={onAdd}
+              onDelete={onDelete}
+              onDeleteMultiple={onDeleteMultiple}
+              onEdit={onEdit}
+              onUse={onUse}
+              onExport={onExportIdeas}
+              onImport={onImportIdeas}
+              onImportById={onImportById}
+              onReorder={onReorderIdeas}
+              onToggleFavorite={onToggleFavorite}
+              isImporting={isImporting}
+              isImportingById={isImportingById}
+            />
+          </div>
+        ) : null
+      }
+
+      {/* 室內設計自動化面板 - 始終保持掛載，使用 CSS 控制顯示，保留背景任務 */}
+      <div
+        className="absolute inset-0"
+        style={{
+          display: view === 'interior-design' ? 'block' : 'none',
+          zIndex: view === 'interior-design' ? 50 : -1
+        }}
+      >
+        <InteriorDesignPanel onBack={() => setView('editor')} />
+      </div>
 
       {/* 桌面模式 - 始终显示 */}
       <div className="relative z-10 flex-1 overflow-hidden">
@@ -1556,9 +1585,9 @@ const Canvas: React.FC<CanvasProps> = ({
         {/* 生成结果浮层 - 毛玻璃效果 + 最小化联动 */}
         {(status === ApiStatus.Loading || (status === ApiStatus.Success && content) || (status === ApiStatus.Error && error)) && (
           <>
-            {/* 正常展开状态 - 居中显示 */}
+            {/* 正常展开状态 - 居中显示，提高 z-index 以在所有视图上方显示 */}
             {!isResultMinimized && (
-              <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 animate-scale-in">
+              <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[70] animate-scale-in">
                 <div className="
                     bg-gradient-to-br from-gray-900/90 via-gray-900/80 to-gray-800/90
                     backdrop-blur-xl backdrop-saturate-150
@@ -1637,7 +1666,7 @@ const Canvas: React.FC<CanvasProps> = ({
           </>
         )}
       </div>
-    </main>
+    </main >
   );
 };
 
@@ -1679,7 +1708,7 @@ const App: React.FC = () => {
     return [...localCreativeIdeas].sort((a, b) => (b.order || 0) - (a.order || 0));
   }, [localCreativeIdeas]);
 
-  const [view, setView] = useState<'editor' | 'local-library'>('editor'); // 默认桌面模式
+  const [view, setView] = useState<'editor' | 'local-library' | 'interior-design'>('editor'); // 默认桌面模式
   const [isAddIdeaModalOpen, setAddIdeaModalOpen] = useState(false);
   const [editingIdea, setEditingIdea] = useState<CreativeIdea | null>(null);
   const [presetImageForNewIdea, setPresetImageForNewIdea] = useState<string | null>(null); // 从桌面图片创建创意库时的预设图片
@@ -1741,6 +1770,14 @@ const App: React.FC = () => {
     if (savedApiKey) {
       setApiKey(savedApiKey);
       initializeAiClient(savedApiKey);
+    } else if (import.meta.env.VITE_GEMINI_API_KEY) {
+      // Fallback to env variable
+      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      console.log('Using API Key from .env');
+      setApiKey(envApiKey);
+      initializeAiClient(envApiKey);
+      // Optional: Save to local storage to persist user override later if needed, 
+      // but keeping it transient allows .env updates to propagate.
     }
 
     // 加载贞贞API配置
@@ -3428,77 +3465,84 @@ const App: React.FC = () => {
         onChange={handleImportIdeas}
       />
 
-      {/* 左侧面板 */}
-      <div className="flex-shrink-0">
-        <LeftPanel
-          files={files}
-          activeFileIndex={activeFileIndex}
-          onFileSelection={handleFileSelection}
-          onFileRemove={handleFileRemove}
-          onFileSelect={setActiveFileIndex}
-          onTriggerUpload={() => fileInputRef.current?.click()}
-          onSettingsClick={() => setSettingsModalOpen(true)}
-          currentApiMode={
-            thirdPartyApiConfig.enabled && thirdPartyApiConfig.apiKey && thirdPartyApiConfig.baseUrl
-              ? 'local-thirdparty'
-              : 'local-gemini'
-          }
-          prompt={prompt}
-          setPrompt={handleSetPrompt}
-          activeSmartTemplate={activeSmartTemplate}
-          activeSmartPlusTemplate={activeSmartPlusTemplate}
-          activeBPTemplate={activeBPTemplate}
-          bpInputs={bpInputs}
-          setBpInput={handleBpInputChange}
-          smartPlusOverrides={smartPlusOverrides}
-          setSmartPlusOverrides={setSmartPlusOverrides}
-          handleGenerateSmartPrompt={handleGenerateSmartPrompt}
-          canGenerateSmartPrompt={canGenerateSmartPrompt}
-          smartPromptGenStatus={smartPromptGenStatus}
-          onCancelSmartPrompt={handleCancelSmartPrompt}
-          aspectRatio={aspectRatio}
-          setAspectRatio={setAspectRatio}
-          imageSize={imageSize}
-          setImageSize={setImageSize}
-          isThirdPartyApiEnabled={thirdPartyApiConfig.enabled}
-          onClearTemplate={handleClearTemplate}
-          backendStatus={backendStatus}
-        />
-      </div>
+      {/* 左侧面板 - 在室內設計頁面隱藏 */}
+      {view !== 'interior-design' && (
+        <div className="flex-shrink-0">
+          <LeftPanel
+            files={files}
+            activeFileIndex={activeFileIndex}
+            onFileSelection={handleFileSelection}
+            onFileRemove={handleFileRemove}
+            onFileSelect={setActiveFileIndex}
+            onTriggerUpload={() => fileInputRef.current?.click()}
+            onSettingsClick={() => setSettingsModalOpen(true)}
+            currentApiMode={
+              thirdPartyApiConfig.enabled && thirdPartyApiConfig.apiKey && thirdPartyApiConfig.baseUrl
+                ? 'local-thirdparty'
+                : 'local-gemini'
+            }
+            prompt={prompt}
+            setPrompt={handleSetPrompt}
+            activeSmartTemplate={activeSmartTemplate}
+            activeSmartPlusTemplate={activeSmartPlusTemplate}
+            activeBPTemplate={activeBPTemplate}
+            bpInputs={bpInputs}
+            setBpInput={handleBpInputChange}
+            smartPlusOverrides={smartPlusOverrides}
+            setSmartPlusOverrides={setSmartPlusOverrides}
+            handleGenerateSmartPrompt={handleGenerateSmartPrompt}
+            canGenerateSmartPrompt={canGenerateSmartPrompt}
+            smartPromptGenStatus={smartPromptGenStatus}
+            onCancelSmartPrompt={handleCancelSmartPrompt}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
+            imageSize={imageSize}
+            setImageSize={setImageSize}
+            isThirdPartyApiEnabled={thirdPartyApiConfig.enabled}
+            onClearTemplate={handleClearTemplate}
+            backendStatus={backendStatus}
+          />
+        </div>
+      )}
 
-      {/* 圖片反推面板 */}
-      <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm">
-        <ReversePromptPanel
-          files={files}
-          onPromptGenerate={handleSetPrompt}
-        />
-      </div>
+      {/* 圖片反推面板 - 在室內設計頁面隱藏 */}
+      {view !== 'interior-design' && (
+        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm">
+          <ReversePromptPanel
+            files={files}
+            onPromptGenerate={handleSetPrompt}
+          />
+        </div>
+      )}
 
-      {/* 拍攝角度控制器 */}
-      <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300">
-        <CameraAngleController
-          onApply={(newPrompt) => {
-            handleSetPrompt(prev => {
-              // 檢查是否存在舊的 <sks> 標籤
-              const sksIndex = prev.indexOf('<sks>');
-              if (sksIndex !== -1) {
-                // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
-                const before = prev.substring(0, sksIndex).trim();
-                const cleanBefore = before.replace(/,\s*$/, '');
-                return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
-              }
+      {/* 拍攝角度控制器 - 在室內設計頁面隱藏 */}
+      {view !== 'interior-design' && (
+        <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300">
+          <CameraAngleController
+            onApply={(newPrompt) => {
+              handleSetPrompt(prev => {
+                // 檢查是否存在舊的 <sks> 標籤
+                const sksIndex = prev.indexOf('<sks>');
+                if (sksIndex !== -1) {
+                  // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
+                  const before = prev.substring(0, sksIndex).trim();
+                  const cleanBefore = before.replace(/,\s*$/, '');
+                  return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
+                }
 
-              // 如果不存在，則直接追加
-              const trimmed = prev.trim();
-              if (!trimmed) return newPrompt;
-              if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
-              return trimmed + ', ' + newPrompt;
-            });
-          }}
-        />
-      </div>
+                // 如果不存在，則直接追加
+                const trimmed = prev.trim();
+                if (!trimmed) return newPrompt;
+                if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
+                return trimmed + ', ' + newPrompt;
+              });
+            }}
+          />
+        </div>
+      )}
 
       <div className="relative flex-1 flex min-w-0">
+
         <Canvas
           view={view}
           setView={setView}
@@ -3597,19 +3641,21 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
-      {/* 右侧面板 */}
-      <div className="flex-shrink-0">
-        <RightPanel
-          creativeIdeas={creativeIdeas}
-          handleUseCreativeIdea={handleUseCreativeIdea}
-          setAddIdeaModalOpen={() => setAddIdeaModalOpen(true)}
-          setView={setView}
-          onDeleteIdea={handleDeleteCreativeIdea}
-          onEditIdea={handleStartEditIdea}
-          onToggleFavorite={handleToggleFavorite}
-          onClearRecentUsage={handleClearRecentUsage}
-        />
-      </div>
+      {/* 右侧面板 - 在室內設計頁面隱藏 */}
+      {view !== 'interior-design' && (
+        <div className="flex-shrink-0">
+          <RightPanel
+            creativeIdeas={creativeIdeas}
+            handleUseCreativeIdea={handleUseCreativeIdea}
+            setAddIdeaModalOpen={() => setAddIdeaModalOpen(true)}
+            setView={setView}
+            onDeleteIdea={handleDeleteCreativeIdea}
+            onEditIdea={handleStartEditIdea}
+            onToggleFavorite={handleToggleFavorite}
+            onClearRecentUsage={handleClearRecentUsage}
+          />
+        </div>
+      )}
 
       <style>{`
         @keyframes fade-in {

@@ -1,0 +1,311 @@
+{
+  "space": {
+    "roomType": "Living Room",
+    "dimensions": {
+      "width": 6.5,
+      "height": 3.2,
+      "depth": 5.8,
+      "area": 37.7
+    },
+    "designStyle": "Modern Luxury Contemporary"
+  },
+  "surfaces": [
+    {
+      "id": "s_floor_01",
+      "type": "floor",
+      "material": {
+        "name": "Engineered Hardwood Flooring",
+        "description": "Wide plank, medium tone oak finish",
+        "estimatedCostPerUnit": 6500
+      },
+      "dimensions": {
+        "width": 6.5,
+        "height": 0,
+        "depth": 5.8,
+        "area": 37.7
+      }
+    },
+    {
+      "id": "s_ceiling_01",
+      "type": "ceiling",
+      "material": {
+        "name": "Gypsum Board Cove Ceiling",
+        "description": "Multi-level dropped ceiling with integrated indirect LED strip lighting recesses",
+        "estimatedCostPerUnit": 4800
+      },
+      "dimensions": {
+        "width": 6.5,
+        "height": 0,
+        "depth": 5.8,
+        "area": 37.7
+      }
+    },
+    {
+      "id": "s_wall_back_left",
+      "type": "wall",
+      "material": {
+        "name": "Dark Wood Veneer Paneling",
+        "description": "Vertical grain dark walnut veneer panels",
+        "estimatedCostPerUnit": 12000
+      },
+      "dimensions": {
+        "width": 2.2,
+        "height": 3.2,
+        "area": 7.04
+      },
+      "position": "Back wall, left section"
+    },
+    {
+      "id": "s_wall_back_mid",
+      "type": "wall",
+      "material": {
+        "name": "Fluted Marble Texture Panel",
+        "description": "Vertical fluted stone/marble texture with integrated vertical LED strips on sides",
+        "estimatedCostPerUnit": 22000
+      },
+      "dimensions": {
+        "width": 1.5,
+        "height": 3.2,
+        "area": 4.8
+      },
+      "position": "Back wall, center section"
+    },
+    {
+      "id": "s_wall_back_right",
+      "type": "wall",
+      "material": {
+        "name": "Architectural Wall Panels",
+        "description": "Painted beige panels with subtle reveal lines",
+        "estimatedCostPerUnit": 3500
+      },
+      "dimensions": {
+        "width": 2.8,
+        "height": 3.2,
+        "area": 8.96
+      },
+      "position": "Back wall, right section"
+    },
+    {
+      "id": "s_window_right",
+      "type": "window",
+      "material": {
+        "name": "Aluminum Window System with Blinds",
+        "description": "Large format window with dark grey horizontal venetian blinds",
+        "estimatedCostPerUnit": 8000
+      },
+      "dimensions": {
+        "width": 2.5,
+        "height": 2.8,
+        "area": 7
+      },
+      "position": "Right wall"
+    }
+  ],
+  "furniture": [
+    {
+      "id": "f_sofa_01",
+      "name": "Large Contemporary Sofa",
+      "category": "Seating",
+      "dimensions": {
+        "width": 2.8,
+        "height": 0.8,
+        "depth": 0.95
+      },
+      "position": "Center",
+      "material": "Beige textured fabric upholstery",
+      "estimatedPrice": 180000
+    },
+    {
+      "id": "f_armchair_01",
+      "name": "Matching Armchair (Left)",
+      "category": "Seating",
+      "dimensions": {
+        "width": 0.9,
+        "height": 0.8,
+        "depth": 0.9
+      },
+      "position": "Left side",
+      "material": "Beige textured fabric upholstery",
+      "estimatedPrice": 55000
+    },
+    {
+      "id": "f_armchair_02",
+      "name": "Matching Armchair (Right)",
+      "category": "Seating",
+      "dimensions": {
+        "width": 0.9,
+        "height": 0.8,
+        "depth": 0.9
+      },
+      "position": "Right side",
+      "material": "Beige textured fabric upholstery",
+      "estimatedPrice": 55000
+    },
+    {
+      "id": "f_coffee_table_01",
+      "name": "Organic Shape Coffee Table",
+      "category": "Tables",
+      "dimensions": {
+        "width": 1.4,
+        "height": 0.4,
+        "depth": 0.8
+      },
+      "position": "Center",
+      "material": "Marble top, metallic bronze base",
+      "estimatedPrice": 85000
+    },
+    {
+      "id": "f_rug_01",
+      "name": "Large Area Rug",
+      "category": "Flooring / Decor",
+      "dimensions": {
+        "width": 4.5,
+        "depth": 3.2
+      },
+      "position": "Center floor",
+      "material": "Wool/viscose blend, light beige",
+      "estimatedPrice": 60000
+    },
+    {
+      "id": "f_light_pendant",
+      "name": "Abstract Ring Pendant Lights",
+      "category": "Lighting",
+      "position": "Ceiling Center",
+      "material": "Metal with integrated LED, brass/gold finish",
+      "estimatedPrice": 95000
+    },
+    {
+      "id": "f_light_floor",
+      "name": "Arc Floor Lamp",
+      "category": "Lighting",
+      "position": "Back Left",
+      "material": "Black metal frame, custom shade",
+      "estimatedPrice": 32000
+    },
+    {
+      "id": "f_sculpture",
+      "name": "Abstract Metal Sculpture",
+      "category": "Decor",
+      "position": "Back Right corner",
+      "material": "Dark patinated metal",
+      "estimatedPrice": 75000
+    },
+    {
+      "id": "f_side_table_01",
+      "name": "Small Side Table",
+      "category": "Tables",
+      "dimensions": {
+        "width": 0.45,
+        "height": 0.5,
+        "depth": 0.45
+      },
+      "position": "Next to left armchair",
+      "material": "Black metal/marble",
+      "estimatedPrice": 18000
+    }
+  ],
+  "estimatedQuotation": [
+    {
+      "id": "q_floor_01",
+      "category": "Finishes - Floor",
+      "item": "Engineered Hardwood Flooring Supply & Install",
+      "description": "Installation of wide plank engineered wood flooring over existing subfloor.",
+      "quantity": 37.7,
+      "unit": "sqm",
+      "unitPrice": 6500,
+      "totalPrice": 245050
+    },
+    {
+      "id": "q_ceil_01",
+      "category": "Finishes - Ceiling",
+      "item": "Complex Cove Ceiling Construction",
+      "description": "Framing, boarding, and finishing of multi-level gypsum ceiling including light troughs.",
+      "quantity": 37.7,
+      "unit": "sqm",
+      "unitPrice": 4800,
+      "totalPrice": 180960
+    },
+    {
+      "id": "q_wall_veneer",
+      "category": "Finishes - Wall",
+      "item": "Feature Wall - Wood Veneer Paneling",
+      "description": "Supply and installation of custom dark wood veneer panels.",
+      "quantity": 7.04,
+      "unit": "sqm",
+      "unitPrice": 12000,
+      "totalPrice": 84480
+    },
+    {
+      "id": "q_wall_marble",
+      "category": "Finishes - Wall",
+      "item": "Feature Wall - Fluted Marble Panel",
+      "description": "Supply and installation of textured stone/marble panels.",
+      "quantity": 4.8,
+      "unit": "sqm",
+      "unitPrice": 22000,
+      "totalPrice": 105600
+    },
+    {
+      "id": "q_wall_paint_panel",
+      "category": "Finishes - Wall",
+      "item": "Feature Wall - Architectural Painting",
+      "description": "Preparation and painting of paneled wall section.",
+      "quantity": 8.96,
+      "unit": "sqm",
+      "unitPrice": 3500,
+      "totalPrice": 31360
+    },
+    {
+      "id": "q_elec_light_arch",
+      "category": "Electrical & Lighting",
+      "item": "Architectural Lighting Package",
+      "description": "Supply and install of all LED strips for coves, wall reveals, and recessed spot lights.",
+      "quantity": 1,
+      "unit": "lump sum",
+      "unitPrice": 150000,
+      "totalPrice": 150000
+    },
+    {
+      "id": "q_elec_light_dec",
+      "category": "Electrical & Lighting",
+      "item": "Decorative Lighting Fixtures",
+      "description": "Supply of central pendant rings and floor arc lamp.",
+      "quantity": 1,
+      "unit": "lump sum",
+      "unitPrice": 127000,
+      "totalPrice": 127000
+    },
+    {
+      "id": "q_furn_pack",
+      "category": "Furniture & Decor",
+      "item": "Loose Furniture Package",
+      "description": "Supply of Sofa, 2x Armchairs, Coffee Table, Side Table, and Rug.",
+      "quantity": 1,
+      "unit": "lump sum",
+      "unitPrice": 453000,
+      "totalPrice": 453000
+    },
+    {
+      "id": "q_decor_art",
+      "category": "Furniture & Decor",
+      "item": "Art & Accessories",
+      "description": "Supply of large metal sculpture and potted plant.",
+      "quantity": 1,
+      "unit": "lump sum",
+      "unitPrice": 90000,
+      "totalPrice": 90000
+    },
+    {
+      "id": "q_window_treat",
+      "category": "Fixtures",
+      "item": "Window Blinds",
+      "description": "Supply and installation of custom fit horizontal blinds.",
+      "quantity": 7,
+      "unit": "sqm",
+      "unitPrice": 5000,
+      "totalPrice": 35000
+    }
+  ],
+  "totalEstimatedBudget": 1502450,
+  "usageAnalysis": "The space is designed as a formal yet inviting living area, primarily for conversation, relaxation, and entertaining guests. The seating arrangement is conversational, centered around the unique coffee table. The sophisticated lighting scheme and high-end materials create a luxurious atmosphere suitable for hosting, while the comfortable upholstery ensures livability. The layout maintains clear circulation paths around the central seating zone."
+}

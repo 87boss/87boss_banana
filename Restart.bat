@@ -20,6 +20,10 @@ for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8765 " ^| findstr "L
     taskkill /f /pid %%a >nul 2>&1
     echo        [OK] Stopped PID: %%a
 )
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8766 " ^| findstr "LISTENING"') do (
+    taskkill /f /pid %%a >nul 2>&1
+    echo        [OK] Stopped PID: %%a
+)
 taskkill /f /fi "WINDOWTITLE eq PenguinMagic-Backend" >nul 2>&1
 
 echo        [OK] All services stopped
@@ -107,7 +111,7 @@ echo        Waiting for backend...
 ping 127.0.0.1 -n 4 > nul
 
 REM Check backend
-netstat -ano | findstr ":8765" | findstr "LISTENING" >nul 2>&1
+netstat -ano | findstr ":8766" | findstr "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
     echo.
@@ -117,7 +121,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo        [OK] Backend running (8765)
+echo        [OK] Backend running (8766)
 echo.
 
 REM ========================================

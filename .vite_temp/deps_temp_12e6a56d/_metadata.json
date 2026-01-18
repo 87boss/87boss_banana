@@ -1,0 +1,94 @@
+{
+  "hash": "412065d2",
+  "configHash": "30c29c10",
+  "lockfileHash": "04bf2780",
+  "browserHash": "eaad6ecc",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "61f81470",
+      "needsInterop": true
+    },
+    "react-dom": {
+      "src": "../../node_modules/react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "aeca8d93",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "27b0260c",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "d8838e63",
+      "needsInterop": true
+    },
+    "@google/genai": {
+      "src": "../../node_modules/@google/genai/dist/web/index.mjs",
+      "file": "@google_genai.js",
+      "fileHash": "f8cba923",
+      "needsInterop": false
+    },
+    "@react-three/drei": {
+      "src": "../../node_modules/@react-three/drei/index.js",
+      "file": "@react-three_drei.js",
+      "fileHash": "db476a55",
+      "needsInterop": false
+    },
+    "@react-three/fiber": {
+      "src": "../../node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "file": "@react-three_fiber.js",
+      "fileHash": "c69a5e4f",
+      "needsInterop": false
+    },
+    "jszip": {
+      "src": "../../node_modules/jszip/dist/jszip.min.js",
+      "file": "jszip.js",
+      "fileHash": "f6081622",
+      "needsInterop": true
+    },
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "6ece0301",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "hls-7VGTU2DG": {
+      "file": "hls-7VGTU2DG.js"
+    },
+    "vision_bundle-TIQSW5H2": {
+      "file": "vision_bundle-TIQSW5H2.js"
+    },
+    "chunk-TXGQJFWJ": {
+      "file": "chunk-TXGQJFWJ.js"
+    },
+    "chunk-3MAFQVTM": {
+      "file": "chunk-3MAFQVTM.js"
+    },
+    "chunk-QRIC4RQV": {
+      "file": "chunk-QRIC4RQV.js"
+    },
+    "chunk-KWWEHD7U": {
+      "file": "chunk-KWWEHD7U.js"
+    },
+    "chunk-NPJGVYK2": {
+      "file": "chunk-NPJGVYK2.js"
+    },
+    "chunk-RBO73NZH": {
+      "file": "chunk-RBO73NZH.js"
+    },
+    "chunk-PLOH2SVG": {
+      "file": "chunk-PLOH2SVG.js"
+    },
+    "chunk-2TUXWMP5": {
+      "file": "chunk-2TUXWMP5.js"
+    }
+  }
+}

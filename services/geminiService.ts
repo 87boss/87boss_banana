@@ -630,6 +630,151 @@ interface GeneratePromptParams {
   smartPlusConfig?: SmartPlusConfig; // For Smart+
 }
 
+
+/**
+ * Analyze interior image(s) to generate BIM data
+ */
+export const analyzeInteriorImage = async (
+  imageData: string, // base64 without prefix
+  mimeType: string = 'image/png',
+  userDimensions?: { width?: number; height?: number; depth?: number }
+): Promise<any> => { // Returns BIMData
+  try {
+    console.log('🚀 [Gemini] Starting Interior Analysis...');
+    const modelName = 'gemini-3-pro-image-preview'; // Standardized model
+
+    if (!ai) {
+      throw new Error("Gemini API Key is not configured. Please set it in Settings.");
+    }
+
+    // Schema Definition Prompt
+    const schemaDefinition = `
+export interface Dimensions { width: number; height: number; depth?: number; area?: number; }
+export interface MaterialInfo { name: string; description?: string; estimatedCostPerUnit?: number; }
+export type SurfaceType = 'wall' | 'floor' | 'ceiling' | 'window' | 'door' | 'partition';
+export interface Surface { id: string; type: SurfaceType; material: MaterialInfo; dimensions: Dimensions; position?: string; }
+export interface Furniture { id: string; name: string; category: string; dimensions?: Dimensions; position?: string; material?: string; estimatedPrice?: number; }
+
+// Categories must be EXACTLY one of these 13 strings:
+export type QuotationCategory = 
+  | '天花板' | '牆面' | '門窗' | '地面' | '櫃體' | '燈具' 
+  | '開關插座' | '電器' | '家具' | '軟裝' | '拆除清運' | '保護工程' | '其他';
+
+export interface QuotationItem { 
+  id: string; 
+  category: QuotationCategory; 
+  item: string; 
+  description: string; 
+  quantity: number; 
+  unit: string; 
+  unitPrice: number; 
+  totalPrice: number; 
+}
+export interface SpaceInfo { roomType: string; dimensions: Dimensions; designStyle: string; }
+export interface BIMData { space: SpaceInfo; surfaces: Surface[]; furniture: Furniture[]; estimatedQuotation: QuotationItem[]; totalEstimatedBudget: number; usageAnalysis: string; }
+`;
+
+    // Construct constraint string if dimensions are provided
+    let constraintPrompt = "";
+    if (userDimensions) {
+      const constraints = [];
+      if (userDimensions.depth) constraints.push(`Length/Depth: ${userDimensions.depth}m`);
+      if (userDimensions.width) constraints.push(`Width: ${userDimensions.width}m`);
+      if (userDimensions.height) constraints.push(`Height: ${userDimensions.height}m`);
+
+      if (constraints.length > 0) {
+        constraintPrompt = `
+        **CRITICAL SPATIAL CONSTRAINTS (KNOWN GROUND TRUTH):**
+        The user has provided the following ACTUAL dimensions for this space. You MUST use these values for your calculations.
+        ${constraints.join('\n')}
+        Scale all other objects (furniture, windows, etc.) relative to these known dimensions.
+        `;
+      }
+    }
+
+    const prompt = `
+      You are an expert BIM (Building Information Modeling) Engineer, Interior Designer, and Quantity Surveyor.
+      
+      Task: 
+      Analyze the provided interior image and reconstruct a detailed 3D understanding of the space.
+      Identify all surfaces (walls, floor, ceiling), furniture, and materials.
+      ${constraintPrompt ? constraintPrompt : "Estimate dimensions (in meters) based on standard furniture sizes (e.g., standard chair height ~0.45m)."}
+      
+      Generate a preliminary Quotation/Bill of Quantities (BoQ) for renovating this space provided in the image (or constructing it if it's a render).
+      
+      Output strictly valid JSON matching the following TypeScript interface (do not include markdown code blocks, just the raw JSON or wrapped in \`\`\`json):
+      
+      ${schemaDefinition}
+      
+      **CRITICAL INSTRUCTION: LANGUAGE**
+      All text content (names, descriptions, categories, usage analysis, etc.) MUST be in **Traditional Chinese (Taiwan) / 繁體中文(台灣)**.
+      Only the JSON keys (e.g., "id", "type", "material", "dimensions") must remain in English as defined in the interface.
+      
+      **CRITICAL INSTRUCTION: CATEGORIES**
+      You MUST strictly categorize every quotation item into one of the following 13 categories (and only these):
+      1. 天花板
+      2. 牆面
+      3. 門窗
+      4. 地面
+      5. 櫃體
+      6. 燈具
+      7. 開關插座
+      8. 電器
+      9. 家具
+      10. 軟裝
+      11. 拆除清運
+      12. 保護工程
+      13. 其他
+      
+      Provide realistic market rates (in TWD - New Taiwan Dollar) for the quotation estimation.
+      Ensure 'totalEstimatedBudget' is the sum of all 'totalPrice' in 'estimatedQuotation'.
+    `;
+
+    // 使用新的 SDK 语法 (GoogleGenAI v1+)
+    const response: GenerateContentResponse = await withRetry(() =>
+      ai!.models.generateContent({
+        model: modelName,
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  data: imageData,
+                  mimeType: mimeType
+                }
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    let text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error('Gemini API returned no text response.');
+    }
+
+    // Clean up markdown
+    text = text.replace(/```json\n?|\n?```/g, "").trim();
+
+    try {
+      const json = JSON.parse(text);
+      console.log('✅ [Gemini] BIM Analysis Complete');
+      return json;
+    } catch (e) {
+      console.error('❌ [Gemini] Failed to parse BIM JSON:', text);
+      throw new Error('Failed to parse Gemini response as JSON');
+    }
+
+  } catch (error) {
+    console.error('❌ [Gemini] Interior Analysis Failed:', error);
+    throw error;
+  }
+};
+
+
 export const generateCreativePromptFromImage = async ({
   file,
   idea,
@@ -643,7 +788,7 @@ export const generateCreativePromptFromImage = async ({
     throw new Error("请先设置 Gemini API Key 或配置贞贞API");
   }
 
-  const model = 'gemini-3-pro-preview';
+  const model = 'gemini-3-pro-image-preview';
 
   if (!file) throw new Error("请上传图片");
 
@@ -653,6 +798,7 @@ export const generateCreativePromptFromImage = async ({
   }
 
   let systemInstruction = '';
+
   let userMessage = '';
 
   if (idea.isSmartPlus && smartPlusConfig) {
@@ -750,7 +896,7 @@ export const optimizePrompt = async (userPrompt: string): Promise<string> => {
     throw new Error("请先设置 Gemini API Key 或配置贞贞API");
   }
 
-  const model = 'gemini-2.0-flash';
+  const model = 'gemini-3-pro-image-preview';
 
   const systemInstruction = `You are an expert AI image generation prompt engineer. Your task is to take a user's brief description or keywords and expand them into a detailed, high-quality image generation prompt.
 
@@ -904,8 +1050,8 @@ export const analyzeImageForPrompt = async (
     throw new Error("請先設置 Gemini API Key 或配置貞贞API");
   }
 
-  // 使用 Gemini 2.0 Flash (更快且多模態效果好) 或 Gemini 3 Pro (如果可用)
-  const model = 'gemini-2.0-flash';
+  // 使用 Gemini 3 Pro Image Preview (全能多模態)
+  const model = 'gemini-3-pro-image-preview';
 
   const systemInstruction = mode === 'interior' ? INTERIOR_DESIGN_PROMPT : GENERAL_PROMPT;
 
@@ -961,5 +1107,64 @@ export const analyzeImageForPrompt = async (
     console.error("Image analysis failed:", error);
     throw new Error("無法分析圖片，請稍後再試");
   }
+};
+
+/**
+ * Generate a technical engineering/construction drawing for a specific item
+ */
+export const generateEngineeringDrawing = async (
+  originalImageBase64: string,
+  itemDescription: string,
+  userCommand?: string
+): Promise<string> => {
+  if (!ai && !(thirdPartyConfig && thirdPartyConfig.enabled)) {
+    throw new Error("AI Service not configured");
+  }
+
+  // Convert base64 to File object for the editImageWithGemini function
+  const cleanBase64 = originalImageBase64.replace(/^data:image\/\w+;base64,/, "");
+  const byteCharacters = atob(cleanBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'image/png' }); // Default to png
+  const file = new File([blob], "original_context.png", { type: 'image/png' });
+
+  const prompt = `
+    Generate a professional technical construction drawing (CAD style engineering drawing) for the following item:
+    "${itemDescription}"
+    
+    Context:
+    This item fits within the interior space shown in the input image.
+    
+    Style Requirements:
+    - 2D Technical Drawing (Elevation or Section view).
+    - Black lines on white background (Blueprint or CAD style).
+    - Include technical annotations and dimension lines (mock values are fine if exact are unknown, but make them realistic).
+    - Clean, precise lines.
+    - Aspect Ratio: 2:3 (Vertical).
+    
+    ${userCommand ? `Additional User Command: ${userCommand}` : ''}
+    
+    The output must strictly be the engineering drawing image only.
+  `;
+
+  // Use editImageWithGemini which handles Img2Img
+  const result = await editImageWithGemini(
+    [file],
+    prompt,
+    {
+      aspectRatio: '2:3',
+      imageSize: '1K', // 2K might be too slow/expensive, start with 1K or map to appropriate sizing
+    }
+  );
+
+  if (!result.imageUrl) {
+    throw new Error("Failed to generate engineering drawing");
+  }
+
+  return result.imageUrl;
 };
 

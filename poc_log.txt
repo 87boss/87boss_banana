@@ -1,0 +1,706 @@
+[2026-01-18T09:52:18.097Z] 🚀 Starting Gemini Vision POC...
+[2026-01-18T09:52:18.098Z] 🔑 Initializing SDK...
+[2026-01-18T09:52:18.100Z] ✅ SDK Initialized.
+[2026-01-18T09:52:18.100Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T09:52:18.101Z] ✅ Image loaded successfully.
+[2026-01-18T09:52:18.101Z] 🧠 Sending request to Gemini...
+[2026-01-18T09:52:18.312Z] ❌ FATAL ERROR: ApiError: {"error":{"code":404,"message":"models/gemini-1.5-pro is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.","status":"NOT_FOUND"}}
+    at throwErrorIfNotOK (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\_api_client.ts:824:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\_api_client.ts:488:9)
+    at async Models.Models.generateContent (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\models.ts:69:14)
+    at async main (D:\Dropbox\0000google\87boss_banana\poc_gemini_vision.ts:109:26)
+[2026-01-18T09:54:15.655Z] 🚀 Starting Gemini Vision POC...
+[2026-01-18T09:54:15.656Z] 🔑 Initializing SDK...
+[2026-01-18T09:54:15.658Z] ✅ SDK Initialized.
+[2026-01-18T09:54:15.658Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T09:54:15.659Z] ✅ Image loaded successfully.
+[2026-01-18T09:54:15.659Z] 🧠 Sending request to Gemini...
+[2026-01-18T09:54:15.841Z] ❌ FATAL ERROR: ApiError: {"error":{"code":404,"message":"models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.","status":"NOT_FOUND"}}
+    at throwErrorIfNotOK (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\_api_client.ts:824:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\_api_client.ts:488:9)
+    at async Models.Models.generateContent (D:\Dropbox\0000google\87boss_banana\node_modules\@google\genai\src\models.ts:69:14)
+    at async main (D:\Dropbox\0000google\87boss_banana\poc_gemini_vision.ts:109:26)
+[2026-01-18T09:55:08.307Z] 🚀 Starting Gemini Vision POC...
+[2026-01-18T09:55:08.308Z] 🔑 Initializing SDK...
+[2026-01-18T09:55:08.310Z] ✅ SDK Initialized.
+[2026-01-18T09:55:08.310Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T09:55:08.311Z] ✅ Image loaded successfully.
+[2026-01-18T09:55:08.312Z] 🧠 Sending request to Gemini...
+[2026-01-18T09:55:45.486Z] ✅ Response received.
+[2026-01-18T09:55:45.487Z] ❌ FATAL ERROR: TypeError: Cannot read properties of undefined (reading 'text')
+    at main (D:\Dropbox\0000google\87boss_banana\poc_gemini_vision.ts:115:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2026-01-18T09:56:25.720Z] 🚀 Starting Gemini Vision POC...
+[2026-01-18T09:56:25.722Z] 🔑 Initializing SDK...
+[2026-01-18T09:56:25.723Z] ✅ SDK Initialized.
+[2026-01-18T09:56:25.724Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T09:56:25.724Z] ✅ Image loaded successfully.
+[2026-01-18T09:56:25.725Z] 🧠 Sending request to Gemini...
+[2026-01-18T09:57:01.910Z] ✅ Response received.
+[2026-01-18T09:57:01.911Z] 🎉 Analysis Complete!
+[2026-01-18T09:57:01.911Z] --- RAW RESPONSE ---
+[2026-01-18T09:57:01.912Z] ```json
+{
+  "objects": [
+    {
+      "id": "space_01",
+      "type": "Space",
+      "name": "Living Room",
+      "description": "A spacious and elegantly designed living room with a classic contemporary aesthetic. The layout suggests an open-plan concept, connecting to other areas of the dwelling. The color palette is primarily light and neutral, creating a serene and luxurious ambiance.",
+      "materials": [],
+      "approx_dimensions": {
+        "length": 8.0,
+        "width": 6.0,
+        "height": 2.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Main communal area within a residential property."
+    },
+    {
+      "id": "wall_01",
+      "type": "Architectural Element",
+      "name": "Interior Walls",
+      "description": "Smooth finished walls, painted in a light off-white or very light cream/beige color. The texture appears subtly refined, possibly with a matte or eggshell finish. One wall features a wide, open archway that leads to an adjacent room.",
+      "materials": ["Gypsum Board", "Emulsion Paint"],
+      "approx_dimensions": {
+        "length": 28.0,
+        "height": 2.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Surrounding the living room area."
+    },
+    {
+      "id": "floor_01",
+      "type": "Architectural Element",
+      "name": "Flooring",
+      "description": "Luxurious polished light-colored flooring, likely large format marble or high-quality porcelain tiles, exhibiting subtle veining patterns. The surface reflects light, contributing to the bright feel of the room.",
+      "materials": ["Marble", "Porcelain Tile"],
+      "approx_dimensions": {
+        "length": 8.0,
+        "width": 6.0,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Throughout the entire living room floor."
+    },
+    {
+      "id": "ceiling_01",
+      "type": "Architectural Element",
+      "name": "Ceiling",
+      "description": "Flat, white ceiling with integrated recessed lighting. A central point is prepared for a decorative chandelier, suggesting a clear focal point for the seating area below. There might be subtle coving or a slight drop to accommodate indirect lighting channels (though not explicitly visible).",
+      "materials": ["Gypsum Board", "Emulsion Paint"],
+      "approx_dimensions": {
+        "length": 8.0,
+        "width": 6.0,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Above the entire living room area."
+    },
+    {
+      "id": "archway_01",
+      "type": "Architectural Element",
+      "name": "Archway Opening",
+      "description": "A wide, gracefully curved or rectangular open archway providing a seamless transition from the living room to another area, enhancing the spacious and open-plan design.",
+      "materials": ["Gypsum Board", "Emulsion Paint"],
+      "approx_dimensions": {
+        "width": 2.5,
+        "height": 2.2,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "On one of the main walls, connecting to an adjacent space."
+    },
+    {
+      "id": "sofa_01",
+      "type": "Furniture",
+      "name": "L-shaped Sectional Sofa",
+      "description": "A large, modern classic L-shaped sectional sofa with a low profile and comfortable cushioning. Upholstered in a light off-white or cream-colored textured fabric, likely linen or a high-quality blend, creating a cozy yet sophisticated seating arrangement.",
+      "materials": ["Fabric Upholstery", "Wood Frame", "Foam Cushioning"],
+      "approx_dimensions": {
+        "length": 3.2,
+        "width": 2.2,
+        "height": 0.75,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Forms the primary seating area, positioned towards the center of the room."
+    },
+    {
+      "id": "armchairs_01",
+      "type": "Furniture",
+      "name": "Accent Armchairs",
+      "description": "Two elegant accent armchairs with a contemporary design, possibly upholstered in a slightly contrasting light grey or beige fabric. These chairs complement the main sofa and complete the conversation area.",
+      "materials": ["Fabric Upholstery", "Metal/Wood Frame"],
+      "approx_dimensions": {
+        "length": 0.85,
+        "width": 0.85,
+        "height": 0.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Positioned opposite or angled towards the L-shaped sofa."
+    },
+    {
+      "id": "coffee_table_01",
+      "type": "Furniture",
+      "name": "Coffee Table",
+      "description": "A prominent, large rectangular or square coffee table featuring a polished light-colored marble top with distinct veining. It is supported by a sleek, possibly dark-toned metal or wooden base, adding a touch of luxury and serving as a central element for the seating area.",
+      "materials": ["Marble", "Metal", "Wood"],
+      "approx_dimensions": {
+        "length": 1.2,
+        "width": 0.8,
+        "height": 0.45,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Centered within the main seating arrangement, in front of the L-shaped sofa."
+    },
+    {
+      "id": "side_tables_01",
+      "type": "Furniture",
+      "name": "Side Tables",
+      "description": "Two small, minimalist side tables (round or square) placed beside the main seating units, providing functional surfaces for drinks or decorative items. Their design likely complements the coffee table.",
+      "materials": ["Metal", "Glass", "Stone"],
+      "approx_dimensions": {
+        "diameter": 0.5,
+        "height": 0.55,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Adjacent to the L-shaped sofa or armchairs."
+    },
+    {
+      "id": "chandelier_01",
+      "type": "Lighting",
+      "name": "Decorative Chandelier",
+      "description": "A grand, multi-tiered chandelier featuring crystal or glass elements, serving as a luxurious focal point for the entire room. Its intricate design adds a touch of classic opulence.",
+      "materials": ["Crystal", "Glass", "Metal"],
+      "approx_dimensions": {
+        "diameter": 1.0,
+        "height": 1.2,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Suspended centrally from the ceiling, above the coffee table and main seating area."
+    },
+    {
+      "id": "downlights_01",
+      "type": "Lighting",
+      "name": "Recessed Ceiling Downlights",
+      "description": "Several discreet recessed LED downlights are integrated into the ceiling, providing general ambient and potentially task lighting. They maintain a clean aesthetic while ensuring adequate illumination.",
+      "materials": ["Metal", "LED Components"],
+      "approx_dimensions": {
+        "diameter": 0.1,
+        "height": 0.12,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Distributed evenly across the ceiling."
+    },
+    {
+      "id": "rug_01",
+      "type": "Soft Furnishing",
+      "name": "Area Rug",
+      "description": "A large, light-colored (off-white or cream) area rug with a subtle texture or pattern. It helps to define the seating zone and adds softness and warmth to the marble flooring.",
+      "materials": ["Wool", "Silk Blend", "Synthetic Fibers"],
+      "approx_dimensions": {
+        "length": 4.0,
+        "width": 3.0,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Underneath the main seating arrangement, centered with the coffee table."
+    },
+    {
+      "id": "pillows_01",
+      "type": "Soft Furnishing",
+      "name": "Decorative Throw Pillows",
+      "description": "Assorted throw pillows in complementary neutral tones and varying textures (e.g., linen, velvet, knitted). They add comfort, depth, and visual interest to the sofa and armchairs.",
+      "materials": ["Fabric (Linen, Velvet, Cotton)", "Polyester/Feather Fill"],
+      "approx_dimensions": {
+        "length": 0.45,
+        "width": 0.45,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Arranged on the L-shaped sofa and accent armchairs."
+    },
+    {
+      "id": "decor_01",
+      "type": "Decor",
+      "name": "Tabletop Decorative Accessories",
+      "description": "A curated selection of decorative items such as elegant vases, art books, and small sculptures placed on the coffee table and side tables, enhancing the room's sophisticated style.",
+      "materials": ["Ceramic", "Glass", "Metal", "Paper (Books)"],
+      "approx_dimensions": {},
+      "approx_location_in_space": "On the coffee table and side tables."
+    }
+  ],
+  "quotation_items": [
+    {
+      "item_name": "Marble/Large Format Tile Flooring Supply & Installation",
+      "category": "Flooring",
+      "unit": "sqm",
+      "quantity": 48,
+      "description": "Supply and professional installation of polished light-colored large format marble or high-quality porcelain tiles for the living room floor (approx. 6m x 8m), including adhesive, grout, and skirting."
+    },
+    {
+      "item_name": "Interior Wall Painting (Premium Emulsion)",
+      "category": "Walls",
+      "unit": "sqm",
+      "quantity": 75,
+      "description": "Preparation of walls, priming, and application of two coats of premium off-white/cream emulsion paint. Covers approx. (2*(6+8)*2.8) sqm wall area, excluding large openings."
+    },
+    {
+      "item_name": "Gypsum False Ceiling Supply & Installation",
+      "category": "Ceiling",
+      "unit": "sqm",
+      "quantity": 48,
+      "description": "Supply and installation of flat gypsum board false ceiling, including jointing, finishing, and painting (approx. 6m x 8m), prepared for lighting fixtures."
+    },
+    {
+      "item_name": "L-shaped Sectional Sofa (Custom/Premium Brand)",
+      "category": "Furniture",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply of one custom-made or premium branded L-shaped sectional sofa, upholstered in a light off-white/cream textured fabric."
+    },
+    {
+      "item_name": "Accent Armchairs (Pair)",
+      "category": "Furniture",
+      "unit": "pair",
+      "quantity": 1,
+      "description": "Supply of one pair of modern design accent armchairs, upholstered in a complementing light grey/beige fabric."
+    },
+    {
+      "item_name": "Marble Top Coffee Table",
+      "category": "Furniture",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply of one large rectangular/square coffee table with a polished marble top and a sleek metal or wood base."
+    },
+    {
+      "item_name": "Side Tables",
+      "category": "Furniture",
+      "unit": "pair",
+      "quantity": 1,
+      "description": "Supply of one pair of contemporary side tables, suitable for living room decor."
+    },
+    {
+      "item_name": "Decorative Chandelier",
+      "category": "Lighting",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply and installation of one multi-tiered crystal or glass decorative chandelier as a focal point."
+    },
+    {
+      "item_name": "Recessed LED Downlights (Supply & Install)",
+      "category": "Lighting",
+      "unit": "ea",
+      "quantity": 10,
+      "description": "Supply and installation of approximately ten modern recessed LED downlights, including wiring and electrical connections for ambient lighting."
+    },
+    {
+      "item_name": "Luxury Area Rug",
+      "category": "Soft Furnishing",
+      "unit": "sqm",
+      "quantity": 12,
+      "description": "Supply of one large, high-quality wool or silk-blend area rug with subtle texture, approx. 3m x 4m."
+    },
+    {
+      "item_name": "Decorative Throw Pillows",
+      "category": "Soft Furnishing",
+      "unit": "ea",
+      "quantity": 8,
+      "description": "Supply of eight assorted premium decorative throw pillows in various textures and complementary colors."
+    },
+    {
+      "item_name": "Tabletop Decorative Accessories Package",
+      "category": "Decor",
+      "unit": "set",
+      "quantity": 1,
+      "description": "Curated package of decorative items for coffee table and side tables, including vases, art books, and small sculptures."
+    }
+  ]
+}
+```
+[2026-01-18T09:57:01.913Z] --- PARSED JSON ---
+[2026-01-18T09:57:01.914Z] {
+  "objects": [
+    {
+      "id": "space_01",
+      "type": "Space",
+      "name": "Living Room",
+      "description": "A spacious and elegantly designed living room with a classic contemporary aesthetic. The layout suggests an open-plan concept, connecting to other areas of the dwelling. The color palette is primarily light and neutral, creating a serene and luxurious ambiance.",
+      "materials": [],
+      "approx_dimensions": {
+        "length": 8,
+        "width": 6,
+        "height": 2.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Main communal area within a residential property."
+    },
+    {
+      "id": "wall_01",
+      "type": "Architectural Element",
+      "name": "Interior Walls",
+      "description": "Smooth finished walls, painted in a light off-white or very light cream/beige color. The texture appears subtly refined, possibly with a matte or eggshell finish. One wall features a wide, open archway that leads to an adjacent room.",
+      "materials": [
+        "Gypsum Board",
+        "Emulsion Paint"
+      ],
+      "approx_dimensions": {
+        "length": 28,
+        "height": 2.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Surrounding the living room area."
+    },
+    {
+      "id": "floor_01",
+      "type": "Architectural Element",
+      "name": "Flooring",
+      "description": "Luxurious polished light-colored flooring, likely large format marble or high-quality porcelain tiles, exhibiting subtle veining patterns. The surface reflects light, contributing to the bright feel of the room.",
+      "materials": [
+        "Marble",
+        "Porcelain Tile"
+      ],
+      "approx_dimensions": {
+        "length": 8,
+        "width": 6,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Throughout the entire living room floor."
+    },
+    {
+      "id": "ceiling_01",
+      "type": "Architectural Element",
+      "name": "Ceiling",
+      "description": "Flat, white ceiling with integrated recessed lighting. A central point is prepared for a decorative chandelier, suggesting a clear focal point for the seating area below. There might be subtle coving or a slight drop to accommodate indirect lighting channels (though not explicitly visible).",
+      "materials": [
+        "Gypsum Board",
+        "Emulsion Paint"
+      ],
+      "approx_dimensions": {
+        "length": 8,
+        "width": 6,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Above the entire living room area."
+    },
+    {
+      "id": "archway_01",
+      "type": "Architectural Element",
+      "name": "Archway Opening",
+      "description": "A wide, gracefully curved or rectangular open archway providing a seamless transition from the living room to another area, enhancing the spacious and open-plan design.",
+      "materials": [
+        "Gypsum Board",
+        "Emulsion Paint"
+      ],
+      "approx_dimensions": {
+        "width": 2.5,
+        "height": 2.2,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "On one of the main walls, connecting to an adjacent space."
+    },
+    {
+      "id": "sofa_01",
+      "type": "Furniture",
+      "name": "L-shaped Sectional Sofa",
+      "description": "A large, modern classic L-shaped sectional sofa with a low profile and comfortable cushioning. Upholstered in a light off-white or cream-colored textured fabric, likely linen or a high-quality blend, creating a cozy yet sophisticated seating arrangement.",
+      "materials": [
+        "Fabric Upholstery",
+        "Wood Frame",
+        "Foam Cushioning"
+      ],
+      "approx_dimensions": {
+        "length": 3.2,
+        "width": 2.2,
+        "height": 0.75,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Forms the primary seating area, positioned towards the center of the room."
+    },
+    {
+      "id": "armchairs_01",
+      "type": "Furniture",
+      "name": "Accent Armchairs",
+      "description": "Two elegant accent armchairs with a contemporary design, possibly upholstered in a slightly contrasting light grey or beige fabric. These chairs complement the main sofa and complete the conversation area.",
+      "materials": [
+        "Fabric Upholstery",
+        "Metal/Wood Frame"
+      ],
+      "approx_dimensions": {
+        "length": 0.85,
+        "width": 0.85,
+        "height": 0.8,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Positioned opposite or angled towards the L-shaped sofa."
+    },
+    {
+      "id": "coffee_table_01",
+      "type": "Furniture",
+      "name": "Coffee Table",
+      "description": "A prominent, large rectangular or square coffee table featuring a polished light-colored marble top with distinct veining. It is supported by a sleek, possibly dark-toned metal or wooden base, adding a touch of luxury and serving as a central element for the seating area.",
+      "materials": [
+        "Marble",
+        "Metal",
+        "Wood"
+      ],
+      "approx_dimensions": {
+        "length": 1.2,
+        "width": 0.8,
+        "height": 0.45,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Centered within the main seating arrangement, in front of the L-shaped sofa."
+    },
+    {
+      "id": "side_tables_01",
+      "type": "Furniture",
+      "name": "Side Tables",
+      "description": "Two small, minimalist side tables (round or square) placed beside the main seating units, providing functional surfaces for drinks or decorative items. Their design likely complements the coffee table.",
+      "materials": [
+        "Metal",
+        "Glass",
+        "Stone"
+      ],
+      "approx_dimensions": {
+        "diameter": 0.5,
+        "height": 0.55,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Adjacent to the L-shaped sofa or armchairs."
+    },
+    {
+      "id": "chandelier_01",
+      "type": "Lighting",
+      "name": "Decorative Chandelier",
+      "description": "A grand, multi-tiered chandelier featuring crystal or glass elements, serving as a luxurious focal point for the entire room. Its intricate design adds a touch of classic opulence.",
+      "materials": [
+        "Crystal",
+        "Glass",
+        "Metal"
+      ],
+      "approx_dimensions": {
+        "diameter": 1,
+        "height": 1.2,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Suspended centrally from the ceiling, above the coffee table and main seating area."
+    },
+    {
+      "id": "downlights_01",
+      "type": "Lighting",
+      "name": "Recessed Ceiling Downlights",
+      "description": "Several discreet recessed LED downlights are integrated into the ceiling, providing general ambient and potentially task lighting. They maintain a clean aesthetic while ensuring adequate illumination.",
+      "materials": [
+        "Metal",
+        "LED Components"
+      ],
+      "approx_dimensions": {
+        "diameter": 0.1,
+        "height": 0.12,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Distributed evenly across the ceiling."
+    },
+    {
+      "id": "rug_01",
+      "type": "Soft Furnishing",
+      "name": "Area Rug",
+      "description": "A large, light-colored (off-white or cream) area rug with a subtle texture or pattern. It helps to define the seating zone and adds softness and warmth to the marble flooring.",
+      "materials": [
+        "Wool",
+        "Silk Blend",
+        "Synthetic Fibers"
+      ],
+      "approx_dimensions": {
+        "length": 4,
+        "width": 3,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Underneath the main seating arrangement, centered with the coffee table."
+    },
+    {
+      "id": "pillows_01",
+      "type": "Soft Furnishing",
+      "name": "Decorative Throw Pillows",
+      "description": "Assorted throw pillows in complementary neutral tones and varying textures (e.g., linen, velvet, knitted). They add comfort, depth, and visual interest to the sofa and armchairs.",
+      "materials": [
+        "Fabric (Linen, Velvet, Cotton)",
+        "Polyester/Feather Fill"
+      ],
+      "approx_dimensions": {
+        "length": 0.45,
+        "width": 0.45,
+        "unit": "meters"
+      },
+      "approx_location_in_space": "Arranged on the L-shaped sofa and accent armchairs."
+    },
+    {
+      "id": "decor_01",
+      "type": "Decor",
+      "name": "Tabletop Decorative Accessories",
+      "description": "A curated selection of decorative items such as elegant vases, art books, and small sculptures placed on the coffee table and side tables, enhancing the room's sophisticated style.",
+      "materials": [
+        "Ceramic",
+        "Glass",
+        "Metal",
+        "Paper (Books)"
+      ],
+      "approx_dimensions": {},
+      "approx_location_in_space": "On the coffee table and side tables."
+    }
+  ],
+  "quotation_items": [
+    {
+      "item_name": "Marble/Large Format Tile Flooring Supply & Installation",
+      "category": "Flooring",
+      "unit": "sqm",
+      "quantity": 48,
+      "description": "Supply and professional installation of polished light-colored large format marble or high-quality porcelain tiles for the living room floor (approx. 6m x 8m), including adhesive, grout, and skirting."
+    },
+    {
+      "item_name": "Interior Wall Painting (Premium Emulsion)",
+      "category": "Walls",
+      "unit": "sqm",
+      "quantity": 75,
+      "description": "Preparation of walls, priming, and application of two coats of premium off-white/cream emulsion paint. Covers approx. (2*(6+8)*2.8) sqm wall area, excluding large openings."
+    },
+    {
+      "item_name": "Gypsum False Ceiling Supply & Installation",
+      "category": "Ceiling",
+      "unit": "sqm",
+      "quantity": 48,
+      "description": "Supply and installation of flat gypsum board false ceiling, including jointing, finishing, and painting (approx. 6m x 8m), prepared for lighting fixtures."
+    },
+    {
+      "item_name": "L-shaped Sectional Sofa (Custom/Premium Brand)",
+      "category": "Furniture",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply of one custom-made or premium branded L-shaped sectional sofa, upholstered in a light off-white/cream textured fabric."
+    },
+    {
+      "item_name": "Accent Armchairs (Pair)",
+      "category": "Furniture",
+      "unit": "pair",
+      "quantity": 1,
+      "description": "Supply of one pair of modern design accent armchairs, upholstered in a complementing light grey/beige fabric."
+    },
+    {
+      "item_name": "Marble Top Coffee Table",
+      "category": "Furniture",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply of one large rectangular/square coffee table with a polished marble top and a sleek metal or wood base."
+    },
+    {
+      "item_name": "Side Tables",
+      "category": "Furniture",
+      "unit": "pair",
+      "quantity": 1,
+      "description": "Supply of one pair of contemporary side tables, suitable for living room decor."
+    },
+    {
+      "item_name": "Decorative Chandelier",
+      "category": "Lighting",
+      "unit": "ea",
+      "quantity": 1,
+      "description": "Supply and installation of one multi-tiered crystal or glass decorative chandelier as a focal point."
+    },
+    {
+      "item_name": "Recessed LED Downlights (Supply & Install)",
+      "category": "Lighting",
+      "unit": "ea",
+      "quantity": 10,
+      "description": "Supply and installation of approximately ten modern recessed LED downlights, including wiring and electrical connections for ambient lighting."
+    },
+    {
+      "item_name": "Luxury Area Rug",
+      "category": "Soft Furnishing",
+      "unit": "sqm",
+      "quantity": 12,
+      "description": "Supply of one large, high-quality wool or silk-blend area rug with subtle texture, approx. 3m x 4m."
+    },
+    {
+      "item_name": "Decorative Throw Pillows",
+      "category": "Soft Furnishing",
+      "unit": "ea",
+      "quantity": 8,
+      "description": "Supply of eight assorted premium decorative throw pillows in various textures and complementary colors."
+    },
+    {
+      "item_name": "Tabletop Decorative Accessories Package",
+      "category": "Decor",
+      "unit": "set",
+      "quantity": 1,
+      "description": "Curated package of decorative items for coffee table and side tables, including vases, art books, and small sculptures."
+    }
+  ]
+}
+[2026-01-18T10:13:00.264Z] 🚀 Starting Gemini Vision POC (BIM Schema Mode)...
+[2026-01-18T10:13:00.265Z] 🔑 Initializing SDK...
+[2026-01-18T10:13:00.267Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T10:13:00.267Z] 🧠 Sending request to Gemini (gemini-3-pro-image-preview)...
+[2026-01-18T10:13:42.216Z] ✅ Response received.
+[2026-01-18T10:13:42.218Z] ❌ FATAL ERROR: TypeError: Cannot read properties of undefined (reading 'candidates')
+    at main (D:\Dropbox\0000google\87boss_banana\poc_gemini_vision.ts:132:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2026-01-18T10:14:16.882Z] 🚀 Starting Gemini Vision POC (BIM Schema Mode)...
+[2026-01-18T10:14:16.883Z] 🔑 Initializing SDK...
+[2026-01-18T10:14:16.885Z] 📸 Reading image from: D:\Dropbox\0000google\87boss_banana\uploaded_image_0_1768728760686.png
+[2026-01-18T10:14:16.885Z] 🧠 Sending request to Gemini (gemini-3-pro-image-preview)...
+[2026-01-18T10:14:24.084Z] ✅ Response received.
+[2026-01-18T10:14:24.085Z] --- RAW RESPONSE START ---
+[2026-01-18T10:14:24.085Z] {
+  "space": {
+    "roomType": "Unknown",
+    "dimensions": {
+      "width": 0,
+      "height": 0,
+      "area": 0
+    },
+    "designStyle": "Not applicable"
+  },
+  "surfaces": [],
+  "furniture": [],
+  "estimatedQuotation": [],
+  "totalEstimatedBudget": 0,
+  "usageAnalysis": "The provided image is a screenshot of a software interface (P7Boss AI), likely used for image generation or design. It is not a photograph or rendering of an interior space. Therefore, it's impossible to analyze an architec...
+[2026-01-18T10:14:24.086Z] --- RAW RESPONSE END ---
+[2026-01-18T10:14:24.086Z] ✅ JSON Parsed Successfully!
+[2026-01-18T10:14:24.087Z] Spatial Analysis: Unknown (undefined)
+[2026-01-18T10:14:24.087Z] Found 0 surfaces and 0 furniture items.
+[2026-01-18T10:14:24.087Z] Total Estimated Budget: 0 TWD
+[2026-01-18T10:14:24.088Z] 💾 Saved full BIM data to poc_bim_data.json
+[2026-01-18T10:15:13.008Z] 🚀 Starting Gemini Vision POC (BIM Schema Mode)...
+[2026-01-18T10:15:13.009Z] 🔑 Initializing SDK...
+[2026-01-18T10:15:13.011Z] 📸 Reading image from: C:\Users\87boss\.gemini\antigravity\brain\a3674b19-abd3-487a-826d-1c5ba6a45d80\uploaded_image_1768727234093.jpg
+[2026-01-18T10:15:13.012Z] 🧠 Sending request to Gemini (gemini-3-pro-image-preview)...
+[2026-01-18T10:16:03.602Z] ✅ Response received.
+[2026-01-18T10:16:03.603Z] --- RAW RESPONSE START ---
+[2026-01-18T10:16:03.603Z] {
+  "space": {
+    "roomType": "Living Room",
+    "dimensions": {
+      "width": 6.5,
+      "height": 3.2,
+      "depth": 5.8,
+      "area": 37.7
+    },
+    "designStyle": "Modern Luxury Contemporary"
+  },
+  "surfaces": [
+    {
+      "id": "s_floor_01",
+      "type": "floor",
+      "material": {
+        "name": "Engineered Hardwood Flooring",
+        "description": "Wide plank, medium tone oak finish",
+        "estimatedCostPerUnit": 6500
+      },
+      "dimensions": {
+        "width": 6.5,
+    ...
+[2026-01-18T10:16:03.604Z] --- RAW RESPONSE END ---
+[2026-01-18T10:16:03.604Z] ✅ JSON Parsed Successfully!
+[2026-01-18T10:16:03.605Z] Spatial Analysis: Living Room (undefined)
+[2026-01-18T10:16:03.605Z] Found 6 surfaces and 9 furniture items.
+[2026-01-18T10:16:03.606Z] Total Estimated Budget: 1502450 TWD
+[2026-01-18T10:16:03.607Z] 💾 Saved full BIM data to poc_bim_data.json

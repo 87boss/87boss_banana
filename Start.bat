@@ -53,6 +53,9 @@ echo  [CLEAN] Cleaning old services...
 for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8765 " ^| findstr "LISTENING"') do (
     taskkill /f /pid %%a >nul 2>&1
 )
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8766 " ^| findstr "LISTENING"') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
 echo  [OK] Port cleared
 echo.
 
@@ -66,12 +69,16 @@ REM Start backend
 echo  [START] Starting Node.js backend...
 start "PenguinMagic-Backend" cmd /c "cd /d "%~dp0backend-nodejs" && node src/server.js || (echo Backend failed && pause)"
 
+REM Start frontend
+echo  [START] Starting Vite frontend...
+start "PenguinMagic-Frontend" cmd /c "cd /d "%~dp0" && npm run dev || (echo Frontend failed && pause)"
+
 REM Wait for backend
 echo        Waiting for backend...
 ping 127.0.0.1 -n 4 > nul
 
 REM Check backend
-netstat -ano | findstr ":8765" | findstr "LISTENING" >nul 2>&1
+netstat -ano | findstr ":8766" | findstr "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
     echo.
@@ -81,7 +88,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo  [OK] Backend running (8765)
+echo  [OK] Backend running (8766)
 echo.
 
 REM Open browser
