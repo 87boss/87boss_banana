@@ -25,5 +25,15 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "node_modules_trash_01",
+    "87boss-veo31-ok",
+    "magic_0116",
+    ".agent",
+    ".qoder",
+    "backend-nodejs/node_modules"
+  ]
 }

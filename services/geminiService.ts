@@ -814,43 +814,47 @@ Checklist & Keywords to Extract:
    - Check: Wall materials, paint, panels
    - Keywords ex: 大理石牆面, 實木貼皮, 藝術塗料, 清水模
 
-3. Category: 地面 (Floor)
+3. Category: 門窗 (Windows & Doors)
+   - Check: Windows, doors, frames, glass
+   - Keywords ex: 落地窗, 鋁框拉門, 百葉窗, 長虹玻璃
+
+4. Category: 地面 (Floor)
    - Check: Flooring materials, rugs
    - Keywords ex: 超耐磨木地板, 石英磚, 盤多磨, 編織地毯
 
-4. Category: 櫃體 (Cabinetry)
+5. Category: 櫃體 (Cabinetry)
    - Check: Wardrobes, shelves, kitchen units
    - Keywords ex: 系統衣櫃, 玻璃展示櫃, 中島吧台, 電視櫃
 
-5. Category: 傢俱 (Furniture)
+6. Category: 傢俱 (Furniture)
    - Check: Sofa, tables, chairs, beds
    - Keywords ex: L型沙發, 實木餐桌, 單人扶手椅, 雙人床架
 
-6. Category: 家電設備 (Appliances)
+7. Category: 家電設備 (Appliances)
    - Check: Electronics, kitchen appliances
    - Keywords ex: 壁掛電視, 嵌入式烤箱, 智慧冰箱
 
-7. Category: 軟裝與飾品 (Decor)
+8. Category: 軟裝與飾品 (Decor)
    - Check: Curtains, art, plants, cushions
    - Keywords ex: 蛇形簾, 抽象掛畫, 龜背芋, 抱枕
 
-8. Category: 材質與色彩 (Materials & Colors)
+9. Category: 材質與色彩 (Materials & Colors)
    - Check: Textures, color palette
    - Keywords ex: 淺橡木, 黃銅金屬, 奶茶色系, 莫蘭迪色
 
-9. Category: 燈具 (Fixtures)
-   - Check: Physical light fixtures (pendant, floor, recessed)
-   - Keywords ex: 線性吊燈, 崁燈, 落地燈, 壁燈
+10. Category: 燈具 (Fixtures)
+    - Check: Physical light fixtures (pendant, floor, recessed)
+    - Keywords ex: 線性吊燈, 崁燈, 落地燈, 壁燈
 
-10. Category: 燈光氛圍 (Lighting Atmosphere)
+11. Category: 燈光氛圍 (Lighting Atmosphere)
     - Check: Light quality, temperature, shadows, natural light
     - Keywords ex: 間接照明, 暖白光 (3000K), 自然光, 電影感光影
 
-11. Category: 室內風格 (Interior Style)
+12. Category: 室內風格 (Interior Style)
     - Check: Overall design style, era
     - Keywords ex: 現代簡約風, 北歐風, 工業風, 日式無印風
 
-12. Category: 攝影鏡頭 (Camera)
+13. Category: 攝影鏡頭 (Camera)
     - Check: Camera angle, focal length, depth of field
     - Keywords ex: 廣角鏡頭, 景深效果, 正視圖, 建築攝影
 
