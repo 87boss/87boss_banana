@@ -1,0 +1,10 @@
+# User Rules
+
+- **Always respond in Traditional Chinese (繁體中文).**
+- **Port Usage**:
+  - Do NOT open `http://localhost:8767/`.
+  - Use `http://localhost:8766/` for testing and verification.
+- **Commands**:
+  - `Start` (開始): Analyze project, start project (Backend + Frontend), open browser at `http://localhost:8766/`.
+  - `Restart` (重啟): Restart all services, open browser at `http://localhost:8766/`.
+  - `Publish` (發佈): Release the project to GitHub.

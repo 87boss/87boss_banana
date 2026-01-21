@@ -16,7 +16,7 @@ REM ========================================
 echo  [1/3] Stopping existing services...
 echo.
 
-for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8765 " ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8767 " ^| findstr "LISTENING"') do (
     taskkill /f /pid %%a >nul 2>&1
     echo        [OK] Stopped PID: %%a
 )
@@ -137,6 +137,6 @@ echo.
 echo  ============================================
 echo.
 
-start http://127.0.0.1:8765
+start http://127.0.0.1:8767
 
 timeout /t 3 > nul

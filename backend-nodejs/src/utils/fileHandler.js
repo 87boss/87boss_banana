@@ -24,13 +24,14 @@ class FileHandler {
       // 解析图片格式
       let ext = '.png';
       let base64Data = imageData;
-      
+
       if (imageData.startsWith('data:')) {
-        const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+        const matches = imageData.match(/^data:(image|video)\/(\w+);base64,(.+)$/);
         if (matches) {
-          const format = matches[1];
-          base64Data = matches[2];
-          
+          const type = matches[1]; // image or video
+          const format = matches[2];
+          base64Data = matches[3];
+
           if (format === 'jpeg' || format === 'jpg') {
             ext = '.jpg';
           } else if (format === 'png') {
@@ -39,14 +40,18 @@ class FileHandler {
             ext = '.webp';
           } else if (format === 'gif') {
             ext = '.gif';
+          } else if (format === 'mp4') {
+            ext = '.mp4';
+          } else if (format === 'webm') {
+            ext = '.webm';
           }
         }
       }
 
       // 生成文件名
       if (!filename) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '_' + 
-                         new Date().toTimeString().split(' ')[0].replace(/:/g, '');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '_' +
+          new Date().toTimeString().split(' ')[0].replace(/:/g, '');
         const randomStr = crypto.randomBytes(4).toString('hex');
         filename = `penguin_${timestamp}_${randomStr}${ext}`;
       }

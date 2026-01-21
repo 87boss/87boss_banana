@@ -3,14 +3,45 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+const https = require('https');
+const http = require('http');
 
+// File Explorer dependencies (optional - will gracefully handle if missing)
+let chokidar = null;
+try {
+  chokidar = require('chokidar');
+  console.log('✅ chokidar loaded successfully');
+} catch (e) {
+  console.warn('⚠️ chokidar not available:', e.message);
+}
+
+// RunningHub Settings Helper
+const getRhSettingsPath = () => path.join(app.getPath('userData'), 'rh_settings.json');
+const readRhSettings = () => {
+  try {
+    if (fs.existsSync(getRhSettingsPath())) {
+      return JSON.parse(fs.readFileSync(getRhSettingsPath(), 'utf8'));
+    }
+  } catch (e) { console.error('RH Settings Read Error:', e); }
+  return { apiKey: '', autoSave: true, autoDecode: true };
+};
+const saveRhSettings = (settings) => {
+  try {
+    const current = readRhSettings();
+    fs.writeFileSync(getRhSettingsPath(), JSON.stringify({ ...current, ...settings }, null, 2));
+    return true;
+  } catch (e) {
+    console.error('RH Settings Save Error:', e);
+    return false;
+  }
+};
 // 配置引數
 const CONFIG = {
   windowWidth: 1280,
   windowHeight: 800,
   minWidth: 1024,
   minHeight: 768,
-  backendPort: 8765,
+  backendPort: 8766,
   backendHost: '127.0.0.1',
   isDev: !app.isPackaged
 };
@@ -75,7 +106,7 @@ const RELEASE_NOTES = {
 function checkAndShowWelcome() {
   const currentVersion = app.getVersion();
   const versionFile = path.join(app.getPath('userData'), 'last_version.txt');
-  
+
   let lastVersion = '';
   try {
     if (fs.existsSync(versionFile)) {
@@ -84,14 +115,14 @@ function checkAndShowWelcome() {
   } catch (e) {
     console.log('讀取版本檔案失敗:', e.message);
   }
-  
+
   // 儲存當前版本
   try {
     fs.writeFileSync(versionFile, currentVersion);
   } catch (e) {
     console.log('儲存版本檔案失敗:', e.message);
   }
-  
+
   // 如果版本不同且有更新日誌，顯示自定義歡迎彈窗
   if (lastVersion && lastVersion !== currentVersion && RELEASE_NOTES[currentVersion]) {
     const notes = RELEASE_NOTES[currentVersion];
@@ -628,7 +659,7 @@ function updateDownloadProgress(percent) {
   downloadProgressWindow.webContents.executeJavaScript(`
     document.getElementById('progress').style.width = '${percent}%';
     document.getElementById('percent').textContent = '${percent.toFixed(1)}%';
-  `).catch(() => {});
+  `).catch(() => { });
 }
 
 // 關閉下載進度彈窗
@@ -776,7 +807,7 @@ function killProcessOnPort(port) {
       resolve();
       return;
     }
-    
+
     // 查詢佔用埠的程序PID
     exec(`netstat -ano | findstr :${port} | findstr LISTENING`, (err, stdout) => {
       if (err || !stdout.trim()) {
@@ -784,7 +815,7 @@ function killProcessOnPort(port) {
         resolve();
         return;
       }
-      
+
       // 解析PID
       const lines = stdout.trim().split('\n');
       const pids = new Set();
@@ -795,14 +826,14 @@ function killProcessOnPort(port) {
           pids.add(pid);
         }
       });
-      
+
       if (pids.size === 0) {
         resolve();
         return;
       }
-      
+
       console.log(`⚠️ 埠 ${port} 被佔用，嘗試終止程序: ${[...pids].join(', ')}`);
-      
+
       // 殺掉佔用埠的程序
       const killPromises = [...pids].map(pid => {
         return new Promise((res) => {
@@ -816,7 +847,7 @@ function killProcessOnPort(port) {
           });
         });
       });
-      
+
       Promise.all(killPromises).then(() => {
         // 等待一下確保埠釋放
         setTimeout(resolve, 500);
@@ -829,7 +860,7 @@ function killProcessOnPort(port) {
 function createSplashWindow() {
   const iconPath = getIconPath();
   const logoPath = iconPath.replace(/\\/g, '/'); // 路徑轉換為 URL 格式
-  
+
   splashWindow = new BrowserWindow({
     width: 400,
     height: 300,
@@ -911,8 +942,8 @@ function createSplashWindow() {
     </head>
     <body>
       <img class="logo" src="file:///${logoPath}" alt="Logo" onerror="this.outerHTML='🐧'" />
-      <div class="title">PenguinMagic</div>
-      <div class="subtitle">企鵝工坊</div>
+      <div class="title">87Boss AI學堂</div>
+      <div class="subtitle">87Boss AI學堂</div>
       <div class="loader"><div class="loader-bar"></div></div>
       <div class="status">正在啟動服務...</div>
     </body>
@@ -935,7 +966,7 @@ function closeSplashWindow() {
 function getIconPath() {
   const iconExt = process.platform === 'win32' ? 'ico' : 'png';
   let iconPath;
-  
+
   if (!app.isPackaged) {
     // 開發環境
     iconPath = path.join(__dirname, `../resources/icon.${iconExt}`);
@@ -947,7 +978,7 @@ function getIconPath() {
       path.join(app.getAppPath(), 'resources', `icon.${iconExt}`),
       path.join(__dirname, `../resources/icon.${iconExt}`)
     ];
-    
+
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
         iconPath = p;
@@ -957,13 +988,13 @@ function getIconPath() {
         console.log('❌ 圖示不存在:', p);
       }
     }
-    
+
     if (!iconPath) {
       console.error('❌ 無法找到圖示檔案');
       return null;
     }
   }
-  
+
   return iconPath;
 }
 
@@ -971,7 +1002,7 @@ function getIconPath() {
 function getNativeIcon() {
   const iconPath = getIconPath();
   if (!iconPath) return null;
-  
+
   try {
     const icon = nativeImage.createFromPath(iconPath);
     if (icon.isEmpty()) {
@@ -990,13 +1021,13 @@ function getNativeIcon() {
 function createWindow() {
   const icon = getNativeIcon();
   console.log('視窗圖示:', icon ? '已載入' : '未載入');
-  
+
   mainWindow = new BrowserWindow({
     width: CONFIG.windowWidth,
     height: CONFIG.windowHeight,
     minWidth: CONFIG.minWidth,
     minHeight: CONFIG.minHeight,
-    title: 'PenguinMagic - 企鵝工坊',
+    title: '87Boss AI學堂',
     icon: icon || undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -1004,9 +1035,9 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true
     },
-    show: false // 先隱藏，等載入完成後顯示
+    show: false
   });
-  
+
   // 設定工作列圖示（Windows特有）
   if (icon && process.platform === 'win32') {
     mainWindow.setIcon(icon);
@@ -1019,10 +1050,17 @@ function createWindow() {
 
   // 載入應用
   if (CONFIG.isDev) {
-    // 開發環境：載入 Vite 開發伺服器
-    mainWindow.loadURL('http://localhost:5176');
-    // 開啟開發者工具
-    mainWindow.webContents.openDevTools();
+    // 開發環境：先清除快取再載入
+    mainWindow.webContents.session.clearCache().then(() => {
+      console.log('🧹 已清除 Electron 快取 (Pre-load)');
+      // 載入 Vite 開發伺服器
+      // 載入 Vite 開發伺服器
+      mainWindow.loadURL('http://localhost:8767');
+      // 改用後端靜態資源服務 (8766) 避開 Vite 504 錯誤
+      // mainWindow.loadURL('http://localhost:8766');
+      // 開啟開發者工具
+      mainWindow.webContents.openDevTools();
+    });
   } else {
     // 生產環境：載入本地後端服務
     mainWindow.loadURL(`http://${CONFIG.backendHost}:${CONFIG.backendPort}`);
@@ -1041,7 +1079,20 @@ function startBackendServer() {
 
     // 讀取自定義儲存路徑
     const storageConfig = loadStorageConfig();
-    const userDataPath = storageConfig.customPath || app.getPath('userData');
+
+    // [Fix] 統一資料路徑邏輯：
+    // 1. 如果有自定義路徑，優先使用
+    // 2. 開發模式下，默認為 CWD (專案根目錄)，保持與舊行為一致，方便調試
+    // 3. 生產模式下，默認為 userData 目錄 (標準做法)
+    // 4. 將來如果要支援便攜版，可在此處添加檢測 CWD 是否可寫的邏輯
+    let baseDataPath = app.getPath('userData');
+    if (CONFIG.isDev) {
+      baseDataPath = process.cwd();
+    }
+
+    const userDataPath = storageConfig.customPath || baseDataPath;
+    global.userDataPath = userDataPath; // 設置全局變量供 IPC 使用
+
     console.log('資料儲存路徑:', userDataPath);
 
     // 設定環境變數
@@ -1062,7 +1113,7 @@ function startBackendServer() {
 
     console.log('resourcesPath:', process.resourcesPath);
     console.log('後端路徑:', backendPath);
-    
+
     // 檢查檔案是否存在
     const fs = require('fs');
     if (!fs.existsSync(backendPath)) {
@@ -1072,7 +1123,7 @@ function startBackendServer() {
       const altPath2 = path.join(process.resourcesPath, 'backend-nodejs', 'src', 'server.js');
       console.log('嘗試替代路徑1:', altPath1, fs.existsSync(altPath1));
       console.log('嘗試替代路徑2:', altPath2, fs.existsSync(altPath2));
-      
+
       if (fs.existsSync(altPath1)) {
         backendPath = altPath1;
       } else if (fs.existsSync(altPath2)) {
@@ -1086,7 +1137,7 @@ function startBackendServer() {
     try {
       // 直接 require 後端模組（使用 Electron 內建的 Node.js）
       const backendApp = require(backendPath);
-      
+
       // 啟動伺服器
       backendServer = backendApp.listen(CONFIG.backendPort, CONFIG.backendHost, () => {
         console.log(`✅ 後端服務已啟動: http://${CONFIG.backendHost}:${CONFIG.backendPort}`);
@@ -1180,8 +1231,8 @@ function createMenu() {
             const { dialog } = require('electron');
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: '關於 PenguinMagic',
-              message: 'PenguinMagic - 企鵝工坊',
+              title: '關於 87Boss AI學堂',
+              message: '87Boss AI學堂',
               detail: `版本: ${app.getVersion()}\n基於 Electron 和 React 構建的 AI 影象管理應用`,
               buttons: ['確定']
             });
@@ -1219,7 +1270,7 @@ function setupAutoUpdater() {
   // 檢查到新版本
   autoUpdater.on('update-available', (info) => {
     console.log('🆕 發現新版本:', info.version);
-    
+
     // 優先使用伺服器返回的 releaseNotes，否則使用預設說明
     let notes = '• 效能最佳化和問題修復';
     if (info.releaseNotes) {
@@ -1230,7 +1281,7 @@ function setupAutoUpdater() {
         notes = info.releaseNotes.map(n => n.note || n).join('\n');
       }
     }
-    
+
     console.log('📝 更新說明:', notes.substring(0, 100) + '...');
     showUpdateAvailableDialog(info.version, notes);
   });
@@ -1353,7 +1404,7 @@ ipcMain.handle('select-storage-path', async () => {
     properties: ['openDirectory', 'createDirectory'],
     buttonLabel: '選擇此資料夾'
   });
-  
+
   if (!result.canceled && result.filePaths.length > 0) {
     return { success: true, path: result.filePaths[0] };
   }
@@ -1367,13 +1418,13 @@ ipcMain.handle('set-storage-path', (event, newPath) => {
     if (newPath && !fs.existsSync(newPath)) {
       fs.mkdirSync(newPath, { recursive: true });
     }
-    
+
     const config = loadStorageConfig();
     config.customPath = newPath || null;
     const saved = saveStorageConfig(config);
-    
-    return { 
-      success: saved, 
+
+    return {
+      success: saved,
       message: saved ? '儲存路徑已更新，重啟應用後生效' : '儲存配置失敗',
       needRestart: true
     };
@@ -1387,31 +1438,31 @@ ipcMain.handle('migrate-data', async (event, newPath) => {
   try {
     const config = loadStorageConfig();
     const currentPath = config.customPath || app.getPath('userData');
-    
+
     if (currentPath === newPath) {
       return { success: true, message: '目標路徑與當前路徑相同' };
     }
-    
+
     // 要遷移的資料夾
     const foldersToMigrate = ['data', 'input', 'output', 'creative_images', 'thumbnails', 'canvas_images'];
     let migratedCount = 0;
     let fileCount = 0;
-    
+
     // 遞迴複製資料夾
     function copyDirRecursive(src, dest) {
       if (!fs.existsSync(src)) return 0;
-      
+
       if (!fs.existsSync(dest)) {
         fs.mkdirSync(dest, { recursive: true });
       }
-      
+
       let count = 0;
       const entries = fs.readdirSync(src, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const srcPath = path.join(src, entry.name);
         const destPath = path.join(dest, entry.name);
-        
+
         if (entry.isDirectory()) {
           count += copyDirRecursive(srcPath, destPath);
         } else {
@@ -1421,11 +1472,11 @@ ipcMain.handle('migrate-data', async (event, newPath) => {
       }
       return count;
     }
-    
+
     for (const folder of foldersToMigrate) {
       const srcDir = path.join(currentPath, folder);
       const destDir = path.join(newPath, folder);
-      
+
       if (fs.existsSync(srcDir)) {
         const copied = copyDirRecursive(srcDir, destDir);
         if (copied > 0) {
@@ -1434,13 +1485,13 @@ ipcMain.handle('migrate-data', async (event, newPath) => {
         }
       }
     }
-    
+
     // 儲存新路徑配置
     config.customPath = newPath;
     saveStorageConfig(config);
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: `已遷移 ${migratedCount} 個資料夾（${fileCount} 個檔案），重啟應用後生效`,
       needRestart: true
     };
@@ -1459,7 +1510,7 @@ ipcMain.handle('open-storage-path', () => {
 
 // 應用啟動
 app.whenReady().then(async () => {
-  console.log('🐧 PenguinMagic 啟動中...');
+  console.log('🐧 87Boss AI學堂 啟動中...');
   console.log('使用者資料目錄:', app.getPath('userData'));
   console.log('應用路徑:', app.getAppPath());
   console.log('開發模式:', CONFIG.isDev);
@@ -1475,7 +1526,7 @@ app.whenReady().then(async () => {
   // 生產環境：先顯示啟動畫面
   if (!CONFIG.isDev) {
     createSplashWindow();
-    
+
     try {
       // 先檢查並釋放埠
       await killProcessOnPort(CONFIG.backendPort);
@@ -1492,7 +1543,7 @@ app.whenReady().then(async () => {
 
   // 建立主視窗
   createWindow();
-  
+
   // 關閉啟動畫面
   closeSplashWindow();
 
@@ -1526,7 +1577,7 @@ app.on('before-quit', () => {
 
 // 應用退出
 app.on('quit', () => {
-  console.log('👋 PenguinMagic 已關閉');
+  console.log('👋 87Boss AI學堂 已關閉');
 });
 
 // 全域性異常處理
@@ -1536,4 +1587,454 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason) => {
   console.error('未處理的 Promise 拒絕:', reason);
+});
+
+// =======================================================
+// RunningHub IPC Handlers (Pure IPC Mode)
+// =======================================================
+
+// 1. Get Config
+ipcMain.handle('rh-get-config', async () => {
+  return { success: true, data: readRhSettings() };
+});
+
+// 2. Save Config
+ipcMain.handle('rh-save-config', async (event, settings) => {
+  const success = saveRhSettings(settings);
+  return { success, data: readRhSettings() }; // Return updated settings
+});
+
+// 3. Save File
+ipcMain.handle('rh-save-file', async (event, { url, name, subDir }) => {
+  try {
+    if (!url || !name) throw new Error('Missing url or name');
+
+    // Determine output path using the global user data path (consistent with backend)
+    let outputDir = path.join(global.userDataPath || app.getPath('userData'), 'output');
+
+    if (subDir) outputDir = path.join(outputDir, subDir);
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    const filePath = path.join(outputDir, name);
+
+    // Base64
+    if (url.startsWith('data:')) {
+      const base64Data = url.split(';base64,').pop();
+      fs.writeFileSync(filePath, base64Data, { encoding: 'base64' });
+      return { success: true, path: filePath };
+    }
+
+    // Remote
+    if (url.startsWith('http')) {
+      return new Promise((resolve, reject) => {
+        const fileStream = fs.createWriteStream(filePath);
+        const protocol = url.startsWith('https') ? https : http;
+
+        const request = protocol.get(url, (response) => {
+          if (response.statusCode !== 200) {
+            fileStream.close();
+            fs.unlink(filePath, () => { });
+            reject(new Error(`HTTP ${response.statusCode}`));
+            return;
+          }
+          response.pipe(fileStream);
+          fileStream.on('finish', () => {
+            fileStream.close();
+            resolve({ success: true, path: filePath });
+          });
+        });
+
+        request.on('error', (err) => {
+          fs.unlink(filePath, () => { });
+          reject(err);
+        });
+      });
+    }
+
+    throw new Error('Unsupported URL format');
+  } catch (error) {
+    console.error('RH Save File Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 4. Decode Image - using duck_decoder.exe for encoded images
+ipcMain.handle('rh-decode-image', async (event, { buffer, fileName }) => {
+  try {
+    const { execFile } = require('child_process');
+    const os = require('os');
+    const isDev = !app.isPackaged;
+
+    // 獲取 decoder 路徑
+    let decoderPath;
+    if (isDev) {
+      const devPath1 = path.join(process.cwd(), 'extraResources/duck_decoder.exe');
+      const devPath2 = path.join(__dirname, '../extraResources/duck_decoder.exe');
+
+      if (fs.existsSync(devPath1)) {
+        decoderPath = devPath1;
+      } else {
+        decoderPath = devPath2;
+      }
+    } else {
+      decoderPath = path.join(process.resourcesPath, 'extraResources/duck_decoder.exe');
+    }
+
+    console.log('[decode-image] isDev:', isDev);
+    console.log('[decode-image] decoderPath:', decoderPath);
+    console.log('[decode-image] exists:', fs.existsSync(decoderPath));
+
+    // 檢查 decoder 是否存在
+    if (!fs.existsSync(decoderPath)) {
+      return { success: false, error: '解碼器不存在' };
+    }
+
+    // 創建臨時文件
+    const tempDir = os.tmpdir();
+    const inputPath = path.join(tempDir, `decode_input_${Date.now()}_${fileName}`);
+    const outputPath = path.join(tempDir, `decode_output_${Date.now()}_${fileName}`);
+
+    // 寫入輸入文件 - buffer 可能是 Array 或 Uint8Array
+    const inputBuffer = Buffer.from(buffer);
+    fs.writeFileSync(inputPath, inputBuffer);
+
+    // 執行解碼
+    await new Promise((resolve, reject) => {
+      const options = {
+        timeout: 60000,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUTF8: '1'
+        }
+      };
+      execFile(decoderPath, ['--duck', inputPath, '--out', outputPath], options, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr || error.message));
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+
+    // 檢查輸出文件
+    if (!fs.existsSync(outputPath)) {
+      fs.unlinkSync(inputPath);
+      return { success: false, error: '解碼失敗：未生成輸出文件' };
+    }
+
+    // 返回 base64 數據
+    const outputData = fs.readFileSync(outputPath);
+    const base64 = outputData.toString('base64');
+    const mimeType = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+    // 清理臨時文件
+    fs.unlinkSync(inputPath);
+    fs.unlinkSync(outputPath);
+
+    return {
+      success: true,
+      outputPath: `data:${mimeType};base64,${base64}`
+    };
+  } catch (error) {
+    console.error('[decode-image] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============ File Explorer IPC ============
+// (chokidar is loaded at top of file)
+
+// 當前活動的 watcher 實例
+let activeWatcher = null;
+
+// 支援的圖片副檔名
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif', '.ico']);
+
+// 取得磁碟列表 (Windows)
+ipcMain.handle('fs:list-drives', async () => {
+  try {
+    if (process.platform === 'win32') {
+      return new Promise((resolve, reject) => {
+        // 使用 PowerShell 取得磁碟資訊（避免 wmic 編碼問題）
+        const psCommand = `powershell -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | ConvertTo-Json"`;
+        exec(psCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (err, stdout) => {
+          if (err) {
+            console.error('[fs:list-drives] PowerShell error:', err);
+            // Fallback: 只列出已知的磁碟代號
+            const fallbackDrives = [];
+            for (let i = 65; i <= 90; i++) { // A-Z
+              const letter = String.fromCharCode(i) + ':';
+              try {
+                if (fs.existsSync(letter + '\\\\')) {
+                  fallbackDrives.push({ letter, label: letter, size: null, freeSpace: null });
+                }
+              } catch (e) { /* 忽略 */ }
+            }
+            resolve({ success: true, drives: fallbackDrives });
+            return;
+          }
+          try {
+            const psdrives = JSON.parse(stdout);
+            const drivesArray = Array.isArray(psdrives) ? psdrives : [psdrives];
+            const drives = drivesArray.map(d => ({
+              letter: d.Name + ':',
+              label: d.Name + ':',
+              size: d.Used != null && d.Free != null ? d.Used + d.Free : null,
+              freeSpace: d.Free
+            }));
+            resolve({ success: true, drives });
+          } catch (parseErr) {
+            console.error('[fs:list-drives] Parse error:', parseErr);
+            resolve({ success: true, drives: [] });
+          }
+        });
+      });
+    } else {
+      // macOS / Linux - 使用 df 指令
+      return new Promise((resolve, reject) => {
+        exec('df -h', { encoding: 'utf8' }, (err, stdout) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          const lines = stdout.trim().split('\n').slice(1);
+          const drives = lines
+            .filter(l => l.includes('/'))
+            .map(line => {
+              const parts = line.split(/\s+/);
+              return {
+                letter: parts[parts.length - 1], // mount point
+                label: parts[0],
+                size: parts[1],
+                freeSpace: parts[3]
+              };
+            });
+          resolve({ success: true, drives });
+        });
+      });
+    }
+  } catch (error) {
+    console.error('[fs:list-drives] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 讀取目錄內容
+ipcMain.handle('fs:read-dir', async (event, dirPath) => {
+  try {
+    const items = [];
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      // 跳過系統隱藏檔案
+      if (entry.name.startsWith('.') || entry.name.startsWith('$') || entry.name === 'desktop.ini' || entry.name === 'Thumbs.db') {
+        continue;
+      }
+
+      const fullPath = path.join(dirPath, entry.name);
+      let stat = null;
+
+      try {
+        stat = fs.statSync(fullPath);
+      } catch (e) {
+        // 無法讀取 (權限問題等)，跳過
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        items.push({
+          name: entry.name,
+          path: fullPath,
+          isDirectory: true,
+          mtime: stat.mtime.getTime()
+        });
+      } else {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (IMAGE_EXTENSIONS.has(ext)) {
+          items.push({
+            name: entry.name,
+            path: fullPath,
+            isDirectory: false,
+            size: stat.size,
+            mtime: stat.mtime.getTime(),
+            ext
+          });
+        }
+      }
+    }
+
+    // 排序：資料夾在前，然後按名稱排序
+    items.sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+      return a.name.localeCompare(b.name, 'zh-TW', { numeric: true });
+    });
+
+    return { success: true, items };
+  } catch (error) {
+    console.error('[fs:read-dir] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 監聽目錄變化
+ipcMain.handle('fs:watch-path', async (event, dirPath) => {
+  try {
+    // 關閉之前的 watcher
+    if (activeWatcher) {
+      await activeWatcher.close();
+      activeWatcher = null;
+    }
+
+    if (!dirPath) {
+      return { success: true, message: 'Watcher stopped' };
+    }
+
+    activeWatcher = chokidar.watch(dirPath, {
+      depth: 0,
+      ignoreInitial: true,
+      ignored: /(^|[\/\\])\../  // 忽略隱藏檔案
+    });
+
+    activeWatcher.on('add', (filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if (IMAGE_EXTENSIONS.has(ext) && mainWindow) {
+        mainWindow.webContents.send('fs:folder-change', { type: 'add', path: filePath });
+      }
+    });
+
+    activeWatcher.on('unlink', (filePath) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('fs:folder-change', { type: 'unlink', path: filePath });
+      }
+    });
+
+    activeWatcher.on('addDir', (dirPath) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('fs:folder-change', { type: 'addDir', path: dirPath });
+      }
+    });
+
+    activeWatcher.on('unlinkDir', (dirPath) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('fs:folder-change', { type: 'unlinkDir', path: dirPath });
+      }
+    });
+
+    return { success: true, message: `Watching ${dirPath}` };
+  } catch (error) {
+    console.error('[fs:watch-path] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 停止監聽
+ipcMain.handle('fs:stop-watch', async () => {
+  if (activeWatcher) {
+    await activeWatcher.close();
+    activeWatcher = null;
+  }
+  return { success: true };
+});
+
+// 取得圖片縮圖 (利用 nativeImage)
+ipcMain.handle('fs:get-thumbnail', async (event, imagePath, size = 120) => {
+  try {
+    const { nativeImage } = require('electron');
+    const image = nativeImage.createFromPath(imagePath);
+
+    if (image.isEmpty()) {
+      return { success: false, error: 'Failed to load image' };
+    }
+
+    // 計算縮放尺寸
+    const origSize = image.getSize();
+    const scale = Math.min(size / origSize.width, size / origSize.height, 1);
+    const newWidth = Math.floor(origSize.width * scale);
+    const newHeight = Math.floor(origSize.height * scale);
+
+    const resized = image.resize({ width: newWidth, height: newHeight, quality: 'good' });
+    const dataUrl = resized.toDataURL();
+
+    return { success: true, dataUrl };
+  } catch (error) {
+    console.error('[fs:get-thumbnail] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 在檔案總管中開啟
+ipcMain.handle('fs:open-in-explorer', async (event, filePath) => {
+  try {
+    shell.showItemInFolder(filePath);
+    return { success: true };
+  } catch (error) {
+    console.error('[fs:open-in-explorer] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 複製路徑到剪貼簿
+ipcMain.handle('fs:copy-path', async (event, filePath) => {
+  try {
+    const { clipboard } = require('electron');
+    clipboard.writeText(filePath);
+    return { success: true };
+  } catch (error) {
+    console.error('[fs:copy-path] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 複製檔案到桌面項目（返回本地 URL）
+ipcMain.handle('fs:copy-to-desktop', async (event, filePath) => {
+  try {
+    const fileName = path.basename(filePath);
+    const storagePath = store.get('storagePath', app.getPath('userData'));
+    const outputDir = path.join(storagePath, 'output');
+
+    // 確保 output 目錄存在
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 生成唯一檔名
+    const ext = path.extname(fileName);
+    const base = path.basename(fileName, ext);
+    const timestamp = Date.now();
+    const newFileName = `${base}_${timestamp}${ext}`;
+    const destPath = path.join(outputDir, newFileName);
+
+    // 複製檔案
+    fs.copyFileSync(filePath, destPath);
+
+    // 返回相對 URL 供前端使用
+    return {
+      success: true,
+      localUrl: `/files/output/${newFileName}`,
+      fileName: newFileName
+    };
+  } catch (error) {
+    console.error('[fs:copy-to-desktop] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 取得預設路徑 (output 資料夾)
+ipcMain.handle('fs:get-default-path', async () => {
+  try {
+    const storagePath = store.get('storagePath', app.getPath('userData'));
+    const outputPath = path.join(storagePath, 'output');
+
+    // 確保目錄存在
+    if (!fs.existsSync(outputPath)) {
+      fs.mkdirSync(outputPath, { recursive: true });
+    }
+
+    return { success: true, path: outputPath };
+  } catch (error) {
+    console.error('[fs:get-default-path] Error:', error);
+    return { success: false, error: error.message };
+  }
 });

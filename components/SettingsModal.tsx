@@ -192,6 +192,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   保存配置
                 </button>
+
+                {/* RunningHub API Key */}
+                <div className="pt-3 border-t" style={{ borderColor: colors.border }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">⚡</span>
+                    <label className="text-xs font-medium" style={{ color: colors.textSecondary }}>RunningHub API Key</label>
+                  </div>
+                  <input
+                    type="password"
+                    id="rh-api-key-input"
+                    defaultValue={localStorage.getItem('rh_api_key') || ''}
+                    placeholder="輸入 RunningHub API Key..."
+                    className="w-full px-3 py-2 text-sm border rounded-lg transition-all outline-none"
+                    style={{
+                      background: colors.bgPrimary,
+                      borderColor: colors.border,
+                      color: colors.textPrimary
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById('rh-api-key-input') as HTMLInputElement;
+                      if (input) {
+                        localStorage.setItem('rh_api_key', input.value);
+                        setSaveSuccessMessage('RunningHub API Key 已保存 ✅');
+                        setTimeout(() => setSaveSuccessMessage(null), 2000);
+                      }
+                    }}
+                    className="w-full mt-2 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                    style={{ background: '#8b5cf6' }}
+                  >
+                    保存 RunningHub 配置
+                  </button>
+                  <p className="text-[10px] mt-1" style={{ color: colors.textSecondary }}>
+                    用於 RunningHub 雲端 AI 工作流
+                  </p>
+                </div>
               </div>
             )}
           </div>

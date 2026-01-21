@@ -204,7 +204,7 @@ const ReversePromptPanel: React.FC<ReversePromptPanelProps> = ({ files, onPrompt
             </div>
 
             {/* Bottom Section: Prompt Result */}
-            <div className="flex-shrink-0 h-1/3 flex flex-col min-h-[150px]">
+            <div className="flex-shrink-0 h-[25%] flex flex-col min-h-[80px]">
                 <h3 className="text-xs font-semibold mb-2 opacity-70">組合提示詞</h3>
                 <textarea
                     value={finalPrompt}

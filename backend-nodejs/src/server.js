@@ -6,6 +6,7 @@ const path = require('path');
 const config = require('./config');
 const JsonStorage = require('./utils/jsonStorage');
 const FileHandler = require('./utils/fileHandler');
+const ThumbnailGenerator = require('./utils/thumbnail');
 
 // 导入路由模块
 const creativeRouter = require('./routes/creative');
@@ -14,6 +15,7 @@ const filesRouter = require('./routes/files');
 const settingsRouter = require('./routes/settings');
 const desktopRouter = require('./routes/desktop');
 const updatesRouter = require('./routes/updates');
+const runningHubRouter = require('./routes/runninghub');
 
 const app = express();
 
@@ -32,7 +34,7 @@ app.use((req, res, next) => {
 // ============== 初始化目录和数据文件 ==============
 function initializeApp() {
   console.log('='.repeat(50));
-  console.log('🐧 企鹅艾洛魔法世界 - Node.js后端服务');
+  console.log('🐧 87Boss AI學堂 - Node.js后端服务');
   console.log('='.repeat(50));
   console.log();
 
@@ -80,6 +82,7 @@ app.use('/api/files', filesRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/desktop', desktopRouter);
 app.use('/api/updates', updatesRouter);
+app.use('/api/runninghub', runningHubRouter);
 
 // 服务状态检查
 app.get('/api/status', (req, res) => {
@@ -132,6 +135,20 @@ function startServer() {
     console.log(`   输出目录: ${config.OUTPUT_DIR}`);
     console.log(`   数据目录: ${config.DATA_DIR}`);
     console.log();
+
+    // 启动时后台生成缩略图（包括视频占位图）
+    console.log('🔄 正在检查并生成缩略图...');
+    Promise.all([
+      ThumbnailGenerator.generateBatch(config.OUTPUT_DIR, 'output'),
+      ThumbnailGenerator.generateBatch(config.INPUT_DIR, 'input'),
+      ThumbnailGenerator.generateBatch(config.CREATIVE_IMAGES_DIR, 'creative_images')
+    ]).then(results => {
+      const total = results.reduce((acc, curr) => acc + curr.count, 0);
+      console.log(`✨ 缩略图检查完成: 新增 ${total} 个`);
+    }).catch(err => {
+      console.error('❌ 缩略图生成异常:', err.message);
+    });
+
     console.log('按 Ctrl+C 停止服务器...');
     console.log('-'.repeat(50));
   });

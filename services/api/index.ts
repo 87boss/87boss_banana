@@ -2,14 +2,20 @@
 // 本地版本 - 连接到 Node.js 后端
 
 // 本地后端API地址
-const API_BASE = '/api';
+// 如果是 Electron 环境且不是通过 localhost 访问（即 file:// 协议或是打包后），直接指向后端端口
+// 否则（开发环境），使用相对路径通过 Vite 代理
+const isElectron = (window as any).electronAPI !== undefined;
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = (isElectron && !isLocalhost) ? 'http://localhost:8766/api' : '/api';
+
+console.log('[API] Check:', { isElectron, isLocalhost, API_BASE });
 
 /**
  * 统一 API 响应类型
  * 成功时返回 { success: true, data: T }
  * 失败时返回 { success: false, error: string, message?: string }
  */
-export type ApiResponse<T> = 
+export type ApiResponse<T> =
   | { success: true; data: T; message?: string }
   | { success: false; data?: undefined; error: string; message?: string };
 
@@ -68,10 +74,10 @@ async function request<T>(
     return data;
   } catch (error) {
     // 网络错误或请求失败
-    const errorMessage = error instanceof Error 
-      ? error.message 
+    const errorMessage = error instanceof Error
+      ? error.message
       : '网络请求失败';
-    
+
     return {
       success: false,
       error: errorMessage,
@@ -80,7 +86,7 @@ async function request<T>(
 }
 
 // GET 请求
-export const get = <T>(endpoint: string): Promise<ApiResponse<T>> => 
+export const get = <T>(endpoint: string): Promise<ApiResponse<T>> =>
   request<T>(endpoint, { method: 'GET' });
 
 // POST 请求
@@ -98,7 +104,7 @@ export const put = <T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>
   });
 
 // DELETE 请求
-export const del = <T>(endpoint: string): Promise<ApiResponse<T>> => 
+export const del = <T>(endpoint: string): Promise<ApiResponse<T>> =>
   request<T>(endpoint, { method: 'DELETE' });
 
 // 文件上传 - 保存到本地 output 目录

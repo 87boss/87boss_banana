@@ -353,7 +353,7 @@ export const CameraAngleController: React.FC<{ onApply: (p: string) => void }> =
             </div>
 
             {/* 3D Scene */}
-            <div className="flex-1 relative cursor-default bg-[#050505] min-h-[250px]">
+            <div className="flex-1 relative cursor-default bg-[#050505] min-h-[150px]">
                 <Canvas camera={{ position: [32, 24, 32], fov: 35 }}>
                     <color attach="background" args={['#050505']} />
 

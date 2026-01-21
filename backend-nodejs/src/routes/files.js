@@ -22,13 +22,13 @@ router.get('/input', (req, res) => {
 // 保存图片到output目录（并生成缩略图）
 router.post('/save-output', async (req, res) => {
   const { imageData, filename } = req.body;
-  
+
   if (!imageData) {
     return res.status(400).json({ success: false, error: '缺少图片数据' });
   }
-  
+
   const result = FileHandler.saveImage(imageData, config.OUTPUT_DIR, filename);
-  
+
   // 异步生成缩略图（不阻塞主流程）
   if (result.success && result.data?.path) {
     ThumbnailGenerator.generate(result.data.path, 'output').then(thumbResult => {
@@ -37,20 +37,20 @@ router.post('/save-output', async (req, res) => {
       }
     }).catch(err => console.error('[Thumbnail] 生成失败:', err.message));
   }
-  
+
   res.json(result);
 });
 
 // 保存图片到input目录（并生成缩略图）
 router.post('/save-input', async (req, res) => {
   const { imageData, filename } = req.body;
-  
+
   if (!imageData) {
     return res.status(400).json({ success: false, error: '缺少图片数据' });
   }
-  
+
   const result = FileHandler.saveImage(imageData, config.INPUT_DIR, filename);
-  
+
   // 异步生成缩略图
   if (result.success && result.data?.path) {
     ThumbnailGenerator.generate(result.data.path, 'input').then(thumbResult => {
@@ -59,25 +59,25 @@ router.post('/save-input', async (req, res) => {
       }
     }).catch(err => console.error('[Thumbnail] 生成失败:', err.message));
   }
-  
+
   res.json(result);
 });
 
 // 保存图片到系统桌面
 router.post('/save-desktop', (req, res) => {
   const { imageData, filename } = req.body;
-  
+
   if (!imageData) {
     return res.status(400).json({ success: false, error: '缺少图片数据' });
   }
-  
+
   const desktopPath = PathHelper.getDesktopPath();
   const result = FileHandler.saveImage(imageData, desktopPath, filename);
-  
+
   if (result.success) {
     result.desktop_path = desktopPath;
   }
-  
+
   res.json(result);
 });
 
@@ -85,13 +85,13 @@ router.post('/save-desktop', (req, res) => {
 router.delete('/output/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(config.OUTPUT_DIR, filename);
-  
+
   // 安全检查：确保文件在output目录内
   const safePath = PathHelper.safePath(config.OUTPUT_DIR, filename);
   if (!safePath) {
     return res.status(400).json({ success: false, error: '非法文件路径' });
   }
-  
+
   const deleted = FileHandler.deleteFile(filePath);
   if (deleted) {
     // 同时删除缩略图
@@ -106,13 +106,13 @@ router.delete('/output/:filename', (req, res) => {
 router.delete('/input/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(config.INPUT_DIR, filename);
-  
+
   // 安全检查：确保文件在input目录内
   const safePath = PathHelper.safePath(config.INPUT_DIR, filename);
   if (!safePath) {
     return res.status(400).json({ success: false, error: '非法文件路径' });
   }
-  
+
   const deleted = FileHandler.deleteFile(filePath);
   if (deleted) {
     // 同时删除缩略图
@@ -126,47 +126,71 @@ router.delete('/input/:filename', (req, res) => {
 // 下载远程图片并保存到本地output目录（支持URL格式）
 router.post('/download-remote', async (req, res) => {
   const { imageUrl, filename } = req.body;
-  
+
   if (!imageUrl) {
     return res.status(400).json({ success: false, error: '缺少图片URL' });
   }
-  
+
   // 验证是否为有效的URL
   if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
     return res.status(400).json({ success: false, error: '无效的URL格式' });
   }
-  
+
   try {
     console.log('[Download] 开始下载远程图片:', imageUrl.substring(0, 80) + '...');
-    
+
     // 下载图片
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error(`下载失败: ${response.status} ${response.statusText}`);
     }
-    
+
     const buffer = await response.arrayBuffer();
     const base64 = Buffer.from(buffer).toString('base64');
-    
+
     // 确定文件类型
     const contentType = response.headers.get('content-type') || 'image/png';
-    const mimeType = contentType.split(';')[0].trim();
+    let mimeType = contentType.split(';')[0].trim();
+    let ext = '.png';
+
+    if (mimeType.includes('image/jpeg')) ext = '.jpg';
+    else if (mimeType.includes('image/png')) ext = '.png';
+    else if (mimeType.includes('image/webp')) ext = '.webp';
+    else if (mimeType.includes('image/gif')) ext = '.gif';
+    else if (mimeType.includes('video/mp4')) { ext = '.mp4'; mimeType = 'video/mp4'; }
+    else if (mimeType.includes('video/webm')) { ext = '.webm'; mimeType = 'video/webm'; }
+
     const dataUrl = `data:${mimeType};base64,${base64}`;
-    
+
+    // 如果没有提供文件名，使用默认命名规则 (pass ext to saveImage if needed, but saveImage detects from data url?)
+    // output/fileHandler.js saveImage parses data:image/...;base64. 
+    // I need to update fileHandler.js to parse video as well.
+
     // 保存到output目录
     const result = FileHandler.saveImage(dataUrl, config.OUTPUT_DIR, filename);
-    
-    // 异步生成缩略图
+
+    // 生成缩略图 (await blocking to ensure frontend can load it immediately)
+    let thumbnailData = null;
     if (result.success && result.data?.path) {
-      ThumbnailGenerator.generate(result.data.path, 'output').then(thumbResult => {
+      try {
+        const thumbResult = await ThumbnailGenerator.generate(result.data.path, 'output');
         if (thumbResult.success) {
           console.log(`[Thumbnail] output: ${result.data.filename}`);
+          thumbnailData = {
+            url: thumbResult.thumbnailUrl,
+            path: thumbResult.thumbnailPath
+          };
         }
-      }).catch(err => console.error('[Thumbnail] 生成失败:', err.message));
+      } catch (err) {
+        console.error('[Thumbnail] 生成失败:', err.message);
+      }
     }
-    
+
     console.log('[Download] 远程图片已保存:', result.data?.filename);
-    res.json(result);
+    res.json({
+      ...result,
+      thumbnail: thumbnailData
+    });
   } catch (error) {
     console.error('[Download] 下载远程图片失败:', error.message);
     res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
@@ -177,16 +201,16 @@ router.post('/download-remote', async (req, res) => {
 router.post('/generate-thumbnails', async (req, res) => {
   try {
     console.log('[Thumbnail] 开始批量生成缩略图...');
-    
+
     const results = {
       output: await ThumbnailGenerator.generateBatch(config.OUTPUT_DIR, 'output'),
       input: await ThumbnailGenerator.generateBatch(config.INPUT_DIR, 'input'),
       creative: await ThumbnailGenerator.generateBatch(config.CREATIVE_IMAGES_DIR, 'creative_images'),
     };
-    
+
     const totalCount = results.output.count + results.input.count + results.creative.count;
     const totalSkipped = (results.output.skipped || 0) + (results.input.skipped || 0) + (results.creative.skipped || 0);
-    
+
     res.json({
       success: true,
       message: `缩略图生成完成: ${totalCount} 个新生成, ${totalSkipped} 个已跳过`,

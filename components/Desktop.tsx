@@ -19,6 +19,7 @@ import { LibraryIcon } from './icons/LibraryIcon';
 import { LibraryIcon } from './icons/LibraryIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { LayersIcon } from './icons/GridIcon';
+import { Zap } from 'lucide-react';
 // JSZip 导出逻辑已迁移到 services/export/desktopExporter.ts
 import { exportAsZip, batchDownloadImages, downloadSingleImage } from '../services/export';
 import { normalizeImageUrl, getThumbnailUrl } from '../utils/image';
@@ -49,8 +50,12 @@ interface DesktopProps {
   onFileDrop?: (files: FileList) => void;
   // 从图片创建创意库
   onCreateCreativeIdea?: (imageUrl: string, prompt?: string, aspectRatio?: string, resolution?: string) => void;
-  // 上传到素材 (替换模式)
+  // 上傳到素材 (替換模式)
   onSetCreativeAssets?: (items: DesktopImageItem[]) => void;
+  // 上傳到 RunningHub
+  onUploadToRH?: (items: DesktopImageItem[]) => void;
+  // 刷新桌面
+  onRefresh?: () => void;
 }
 
 const GRID_SIZE = 100; // 网格大小
@@ -91,6 +96,8 @@ export const Desktop: React.FC<DesktopProps> = ({
   onFileDrop,
   onCreateCreativeIdea,
   onSetCreativeAssets,
+  onUploadToRH,
+  onRefresh,
 }) => {
   const { theme, themeName } = useTheme();
   const isLight = themeName === 'light';
@@ -1515,21 +1522,18 @@ export const Desktop: React.FC<DesktopProps> = ({
           <span>自动叠放</span>
         </button>
         <button
-          onClick={() => setHideFileNames(!hideFileNames)}
-          className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg backdrop-blur-xl border transition-all hover:scale-105 ${hideFileNames
-            ? 'bg-blue-500/20 border-blue-500/30'
-            : ''
-            }`}
-          style={!hideFileNames ? {
+          onClick={() => onRefresh?.()}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg backdrop-blur-xl border transition-all hover:scale-105 hover:bg-white/10"
+          style={{
             background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(18,18,26,0.95)',
             borderColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
             color: isLight ? '#475569' : '#a1a1aa'
-          } : { color: '#a5b4fc' }}
-          title={hideFileNames ? '显示文件名' : '隐藏文件名'}
+          }}
+          title="重新整理桌面並按時間排序"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {hideFileNames ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeOffIcon className="w-3.5 h-3.5" />}
-          <span>{hideFileNames ? '显示名称' : '隐藏名称'}</span>
+          <RefreshIcon className="w-3.5 h-3.5" />
+          <span>刷新桌面</span>
         </button>
       </div>
       {/* 面包屑导航（在文件夹或叠放内时显示） */}
@@ -2091,6 +2095,19 @@ export const Desktop: React.FC<DesktopProps> = ({
                       <span>上傳到素材</span>
                     </button>
                   )}
+                  {onUploadToRH && (
+                    <button
+                      onClick={() => {
+                        const item = items.find(i => i.id === contextMenu.itemId) as DesktopImageItem;
+                        if (item) onUploadToRH([item]);
+                        setContextMenu(null);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] hover:bg-purple-500/10 transition-colors flex items-center gap-2"
+                      style={{ color: theme.colors.textPrimary }}>
+                      <Zap className="w-4 h-4 text-purple-400" />
+                      <span>上傳到RH</span>
+                    </button>
+                  )}
                   {/* 创建创意库 - 蓝色 */}
                   {onCreateCreativeIdea && (
                     <button
@@ -2228,6 +2245,25 @@ export const Desktop: React.FC<DesktopProps> = ({
                     >
                       <UploadIcon className="w-4 h-4 text-orange-400" />
                       <span>上傳到素材 ({selectedIds.filter(id => items.find(i => i.id === id)?.type === 'image').length})</span>
+                    </button>
+                  )}
+                  {onUploadToRH && (
+                    <button
+                      onClick={async () => {
+                        const selectedImages = selectedIds
+                          .map(id => items.find(i => i.id === id))
+                          .filter((item): item is DesktopImageItem => item?.type === 'image');
+
+                        if (selectedImages.length > 0) {
+                          onUploadToRH(selectedImages);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] hover:bg-purple-500/10 transition-colors flex items-center gap-2"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      <Zap className="w-4 h-4 text-purple-400" />
+                      <span>上傳到RH ({selectedIds.filter(id => items.find(i => i.id === id)?.type === 'image').length})</span>
                     </button>
                   )}
                   <button

@@ -24,22 +24,51 @@ class ThumbnailGenerator {
       // 获取文件名和扩展名
       const filename = path.basename(sourcePath);
       const nameWithoutExt = path.parse(filename).name;
-      
+
       // 缩略图使用 jpg 格式（压缩率更高）
       const thumbnailFilename = `${sourceDir}_${nameWithoutExt}_thumb.jpg`;
       const thumbnailPath = path.join(config.THUMBNAILS_DIR, thumbnailFilename);
 
-      // 使用 sharp 生成缩略图
-      await sharp(sourcePath)
-        .resize(config.THUMBNAIL_SIZE, config.THUMBNAIL_SIZE, {
-          fit: 'cover',      // 裁剪以填满
-          position: 'center' // 中心裁剪
+      // 检查是否为视频
+      const ext = path.extname(sourcePath).toLowerCase();
+      const isVideo = ['.mp4', '.webm'].includes(ext);
+
+      if (isVideo) {
+        // 视频文件：生成带播放图标的占位图
+        const playIconSvg = `
+          <svg width="${config.THUMBNAIL_SIZE / 2}" height="${config.THUMBNAIL_SIZE / 2}" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="white" stroke-width="1.5" fill="rgba(0,0,0,0.5)"/>
+            <path d="M10 8L16 12L10 16V8Z" fill="white"/>
+          </svg>
+        `;
+
+        await sharp({
+          create: {
+            width: config.THUMBNAIL_SIZE,
+            height: config.THUMBNAIL_SIZE,
+            channels: 4,
+            background: { r: 40, g: 45, b: 60, alpha: 1 } // 深蓝灰色背景
+          }
         })
-        .jpeg({ 
-          quality: config.THUMBNAIL_QUALITY,
-          progressive: true  // 渐进式加载
-        })
-        .toFile(thumbnailPath);
+          .composite([{
+            input: Buffer.from(playIconSvg),
+            gravity: 'center'
+          }])
+          .jpeg({ quality: config.THUMBNAIL_QUALITY })
+          .toFile(thumbnailPath);
+      } else {
+        // 图片文件：使用 sharp 生成缩略图
+        await sharp(sourcePath)
+          .resize(config.THUMBNAIL_SIZE, config.THUMBNAIL_SIZE, {
+            fit: 'cover',      // 裁剪以填满
+            position: 'center' // 中心裁剪
+          })
+          .jpeg({
+            quality: config.THUMBNAIL_QUALITY,
+            progressive: true  // 渐进式加载
+          })
+          .toFile(thumbnailPath);
+      }
 
       console.log(`✓ 缩略图已生成: ${thumbnailFilename}`);
 
@@ -70,8 +99,8 @@ class ThumbnailGenerator {
       }
 
       const files = fs.readdirSync(sourceDir);
-      const imageFiles = files.filter(f => 
-        /\.(png|jpg|jpeg|webp|gif)$/i.test(f)
+      const imageFiles = files.filter(f =>
+        /\.(png|jpg|jpeg|webp|gif|mp4|webm)$/i.test(f)
       );
 
       let successCount = 0;

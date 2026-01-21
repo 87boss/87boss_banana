@@ -1,13 +1,16 @@
 import path from 'path';
+import os from 'os';
 import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    cacheDir: './.vite_temp',
+    // 將快取目錄移出 Dropbox，避免同步鎖定導致的 EBUSY 錯誤
+    cacheDir: path.join(os.tmpdir(), '87boss-vite-cache'),
     server: {
-      port: 8765,
+      port: 8767,
       strictPort: true,
+      host: true,
       proxy: {
         // 本地 Node.js 后端代理
         '/api': {
@@ -39,8 +42,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     optimizeDeps: {
+      force: false, // 關閉強制重新優化，減少 EBUSY 錯誤機會
       exclude: ['magic_0116', 'magic_0116_exclude'],
-      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-dev-runtime']
+      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-dev-runtime', 'lucide-react', 'zustand', 'zustand/middleware']
     },
     build: {
       rollupOptions: {

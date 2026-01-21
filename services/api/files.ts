@@ -19,28 +19,28 @@ export const listInputFiles = async (): Promise<{ success: boolean; data?: FileI
 };
 
 // 保存图片到输出目录
-export const saveToOutput = async (imageData: string, filename?: string): Promise<{ 
-  success: boolean; 
-  data?: { filename: string; path: string; url: string }; 
-  error?: string 
+export const saveToOutput = async (imageData: string, filename?: string): Promise<{
+  success: boolean;
+  data?: { filename: string; path: string; url: string };
+  error?: string
 }> => {
   return post('/files/save-output', { imageData, filename });
 };
 
 // 保存图片到输入目录
-export const saveToInput = async (imageData: string, filename?: string): Promise<{ 
-  success: boolean; 
-  data?: { filename: string; path: string; url: string }; 
-  error?: string 
+export const saveToInput = async (imageData: string, filename?: string): Promise<{
+  success: boolean;
+  data?: { filename: string; path: string; url: string };
+  error?: string
 }> => {
   return post('/files/save-input', { imageData, filename });
 };
 
 // 保存图片到系统桌面
-export const saveToDesktop = async (imageData: string, filename?: string): Promise<{ 
-  success: boolean; 
-  data?: { filename: string; path: string; desktop_path: string }; 
-  error?: string 
+export const saveToDesktop = async (imageData: string, filename?: string): Promise<{
+  success: boolean;
+  data?: { filename: string; path: string; desktop_path: string };
+  error?: string
 }> => {
   return post('/files/save-desktop', { imageData, filename });
 };
@@ -66,10 +66,11 @@ export const getInputFileUrl = (filename: string): string => {
 };
 
 // 下载远程图片并保存到output目录（用于处理第三方API返回的URL）
-export const downloadRemoteToOutput = async (imageUrl: string, filename?: string): Promise<{ 
-  success: boolean; 
-  data?: { filename: string; path: string; url: string }; 
-  error?: string 
+export const downloadRemoteToOutput = async (imageUrl: string, filename?: string): Promise<{
+  success: boolean;
+  data?: { filename: string; path: string; url: string };
+  thumbnail?: { url: string; path: string };
+  error?: string
 }> => {
   return post('/files/download-remote', { imageUrl, filename });
 };

@@ -1,7 +1,11 @@
 const path = require('path');
 
-// 获取项目根目录 (backend-nodejs的上一级)
-const BASE_DIR = path.resolve(__dirname, '..', '..');
+// 获取项目根目录
+// 如果有 USER_DATA_PATH 环境变量（由 Electron 传入），则优先使用
+const USER_DATA_PATH = process.env.USER_DATA_PATH;
+const BASE_DIR = USER_DATA_PATH || path.resolve(__dirname, '..', '..');
+
+console.log('[Config] BASE_DIR:', BASE_DIR);
 
 // 配置项
 const config = {

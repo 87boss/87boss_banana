@@ -50,7 +50,7 @@ echo.
 
 REM Kill existing services
 echo  [CLEAN] Cleaning old services...
-for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8765 " ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8767 " ^| findstr "LISTENING"') do (
     taskkill /f /pid %%a >nul 2>&1
 )
 for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8766 " ^| findstr "LISTENING"') do (
@@ -72,6 +72,7 @@ start "PenguinMagic-Backend" cmd /c "cd /d "%~dp0backend-nodejs" && node src/ser
 REM Start frontend
 echo  [START] Starting Vite frontend...
 start "PenguinMagic-Frontend" cmd /c "cd /d "%~dp0" && npm run dev || (echo Frontend failed && pause)"
+rem start "RunningHub-Frontend" cmd /c "cd /d "%~dp0RH-AI-87boss" && npm run dev || (echo RunningHub failed && pause)"
 
 REM Wait for backend
 echo        Waiting for backend...
@@ -94,7 +95,7 @@ echo.
 REM Open browser
 color 0A
 echo  [SUCCESS] Opening browser...
-start http://127.0.0.1:8765
+start http://127.0.0.1:8767
 
 echo.
 echo  ============================================
@@ -102,7 +103,7 @@ echo.
 echo   Service is running in background.
 echo   You can close this window.
 echo.
-echo   URL: http://127.0.0.1:8765
+echo   URL: http://127.0.0.1:8767
 echo.
 echo   To stop: run "Stop.bat"
 echo.

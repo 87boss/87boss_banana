@@ -17,7 +17,6 @@ import { BoltIcon } from './components/icons/BoltIcon';
 import { PlusCircleIcon } from './components/icons/PlusCircleIcon';
 import { GenerateButton } from './components/GenerateButton';
 import { BatchGenerateButton } from './components/BatchGenerateButton';
-import { PenguinIcon } from './components/icons/PenguinIcon';
 import { PIcon, PlugIcon, DiamondIcon, WarningIcon } from './components/icons/PIcon';
 import { ImageIcon } from './components/icons/ImageIcon';
 import { LightbulbIcon } from './components/icons/LightbulbIcon';
@@ -33,6 +32,11 @@ import { HistoryDock } from './components/HistoryDock';
 import ReversePromptPanel from './components/ReversePromptPanel';
 import { CameraAngleController } from './components/CameraAngleController';
 import { InteriorDesignPanel } from './components/InteriorDesignPanel';
+import RunningHubView from './src/components/RunningHub/RunningHubView';
+import { MiniRunningHub } from './src/components/RunningHub/MiniRunningHub';
+import { RHAppsLibrary } from './src/components/RunningHub/RHAppsLibrary';
+import { useTaskStore } from './src/stores/runningHubTaskStore';
+import { FileExplorerPanel } from './components/FileExplorer';
 
 
 interface LeftPanelProps {
@@ -74,16 +78,17 @@ interface RightPanelProps {
   creativeIdeas: CreativeIdea[];
   handleUseCreativeIdea: (idea: CreativeIdea) => void;
   setAddIdeaModalOpen: (isOpen: boolean) => void;
-  setView: (view: 'editor' | 'local-library' | 'interior-design') => void;
+  setView: (view: 'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer') => void;
   onDeleteIdea: (id: number) => void;
   onEditIdea: (idea: CreativeIdea) => void;
   onToggleFavorite?: (id: number) => void; // 切换收藏状态
   onClearRecentUsage?: (id: number) => void; // 清除使用记录（重置order）
+  onSelectApp: (appId: string) => void; // 选择 RH 应用
 }
 
 interface CanvasProps {
-  view: 'editor' | 'local-library' | 'interior-design';
-  setView: (view: 'editor' | 'local-library' | 'interior-design') => void;
+  view: 'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer';
+  setView: (view: 'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer') => void;
   files: File[];
   onUploadClick: () => void;
   creativeIdeas: CreativeIdea[];
@@ -139,9 +144,13 @@ interface CanvasProps {
   onCreateCreativeIdea?: (imageUrl: string, prompt?: string, aspectRatio?: string, resolution?: string) => void;
   // 上传到素材 (替换模式)
   onSetCreativeAssets?: (items: DesktopImageItem[]) => void;
+  // 上传到 RunningHub
+  onUploadToRH?: (items: DesktopImageItem[]) => void;
   // 最小化结果状态
   isResultMinimized: boolean;
   setIsResultMinimized: (value: boolean) => void;
+  // 刷新桌面
+  onRefresh?: () => void;
 }
 
 // IndexedDB 相关操作已迁移到 services/db/ 目录
@@ -255,7 +264,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         }}
       />
 
-      {/* 顶部导航栏 */}
+      {/* 底部状态栏 */}
       <div
         className="relative px-4 py-3.5 flex items-center justify-between"
         style={{
@@ -268,7 +277,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             style={{
               backgroundColor: isDark ? '#000000' : theme.colors.bgTertiary,
               boxShadow: isDark ? '0 10px 15px -3px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)',
-              ringColor: theme.colors.border
+              borderColor: theme.colors.border
             }}
           >
             <PIcon className="w-5 h-5" style={{ strokeWidth: 3, color: theme.colors.textPrimary }} />
@@ -604,7 +613,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 ) : (
-                  <PenguinIcon className="w-4 h-4" />
+                  <PIcon className="w-4 h-4" />
                 )}
               </button>
             </div>
@@ -680,7 +689,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   className="w-6 h-6 rounded-lg flex items-center justify-center ring-1"
                   style={{
                     backgroundColor: activeBPTemplate ? 'rgba(238,209,109,0.2)' : 'rgba(59,130,246,0.2)',
-                    ringColor: activeBPTemplate ? 'rgba(238,209,109,0.2)' : 'rgba(59,130,246,0.2)',
+                    borderColor: activeBPTemplate ? 'rgba(238,209,109,0.2)' : 'rgba(59,130,246,0.2)',
                   }}
                 >
                   {activeBPTemplate ? (
@@ -1186,6 +1195,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
   onEditIdea,
   onToggleFavorite,
   onClearRecentUsage,
+  onSelectApp,
 }) => {
   const { theme } = useTheme();
 
@@ -1301,102 +1311,111 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
   return (
     <aside className="w-[220px] flex-shrink-0 flex flex-col h-full liquid-panel border-l z-20">
-      {/* 标题栏 */}
-      <div className="liquid-panel-section flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
-            <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-          </div>
-          <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setAddIdeaModalOpen(true)}
-            className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-            style={{
-              background: 'var(--glass-bg)',
-              color: theme.colors.textSecondary
-            }}
-            title="新建創意"
-          >
-            <PlusCircleIcon className="w-3 h-3" />
-          </button>
-          <button
-            onClick={() => setView('local-library')}
-            className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-            style={{
-              background: 'var(--glass-bg)',
-              color: theme.colors.textSecondary
-            }}
-            title="全部創意庫"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* 内容列表 */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-        {/* 最近使用 - 始终在最上方，最多显示3个 */}
-        {recentIdeas.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
-            </div>
-            <div className="space-y-1.5">
-              {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
-            </div>
-          </div>
-        )}
-
-        {/* 收藏列表 - 在下方 */}
-        {favoriteIdeas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-8">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
-              <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+      {/* 上半部分：收藏创意 */}
+      <div className="flex-1 flex flex-col min-h-0 border-b border-white/10">
+        {/* 标题栏 */}
+        <div className="liquid-panel-section flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
+              <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
               </svg>
             </div>
-            <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
-            <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
+            <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setAddIdeaModalOpen(true)}
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+              style={{
+                background: 'var(--glass-bg)',
+                color: theme.colors.textSecondary
+              }}
+              title="新建創意"
+            >
+              <PlusCircleIcon className="w-3 h-3" />
+            </button>
             <button
               onClick={() => setView('local-library')}
-              className="mt-4 px-4 py-2 liquid-btn text-[11px]"
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+              style={{
+                background: 'var(--glass-bg)',
+                color: theme.colors.textSecondary
+              }}
+              title="全部創意庫"
             >
-              <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
-              瀏覽創意庫
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
             </button>
           </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
+        </div>
+
+        {/* 内容列表 */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+          {/* 最近使用 - 始终在最上方，最多显示3个 */}
+          {recentIdeas.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
+              </div>
+              <div className="space-y-1.5">
+                {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
+          )}
+
+          {/* 收藏列表 - 在下方 */}
+          {favoriteIdeas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-8">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+              </div>
+              <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
+              <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
+              <button
+                onClick={() => setView('local-library')}
+                className="mt-4 px-4 py-2 liquid-btn text-[11px]"
+              >
+                <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
+                瀏覽創意庫
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
+              </div>
+              <div className="space-y-1.5">
+                {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 底部统计 */}
+        {creativeIdeas.length > 0 && (
+          <div className="mx-3 mb-3 px-2.5 py-2 liquid-card">
+            <div className="flex items-center justify-between text-[10px]">
+              <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
+              <button
+                onClick={() => setView('local-library')}
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+                title="管理全部"
+              >
+                管理全部 →
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* 底部统计 */}
-      {creativeIdeas.length > 0 && (
-        <div className="mx-3 mb-3 px-2.5 py-2 liquid-card">
-          <div className="flex items-center justify-between text-[10px]">
-            <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
-            <button
-              onClick={() => setView('local-library')}
-              className="text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              管理全部 →
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 下半部分：RH-AI 应用 */}
+      <div className="flex-1 flex flex-col min-h-0 bg-[#1e1e24] w-full">
+        <RHAppsLibrary onSelectApp={onSelectApp} className="flex-1" />
+      </div>
     </aside>
   );
 };
@@ -1454,6 +1473,8 @@ const Canvas: React.FC<CanvasProps> = ({
   onToggleFavorite,
   isImporting,
   isImportingById,
+  onRefresh,
+  onUploadToRH,
 }) => {
   const { theme, themeName } = useTheme();
   const isDark = themeName !== 'light';
@@ -1517,7 +1538,26 @@ const Canvas: React.FC<CanvasProps> = ({
             BETA
           </span>
         </button>
-
+        <button
+          onClick={() => setView('runninghub')}
+          className={`liquid-tab flex items-center gap-1 ${view === 'runninghub' ? 'active' : ''
+            }`}
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          RunningHub
+        </button>
+        <button
+          onClick={() => setView('file-explorer')}
+          className={`liquid-tab flex items-center gap-1 ${view === 'file-explorer' ? 'active' : ''
+            }`}
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          檔案
+        </button>
       </div>
 
 
@@ -1557,6 +1597,24 @@ const Canvas: React.FC<CanvasProps> = ({
         <InteriorDesignPanel onBack={() => setView('editor')} />
       </div>
 
+      {/* RunningHub 面板 - 使用 RunningHubView 替代 */}
+      {/* <RunningHubView /> rendered in main content area */}
+
+      {/* 檔案瀏覽器面板 */}
+      {view === 'file-explorer' && (
+        <div className="absolute inset-0 z-50 pt-12">
+          <FileExplorerPanel
+            onImageSelect={(path) => {
+              console.log('[FileExplorer] Selected:', path);
+              // 可在此處理選中圖片的邏輯
+            }}
+            onDragToDesktop={(path) => {
+              console.log('[FileExplorer] Drag to desktop:', path);
+            }}
+          />
+        </div>
+      )}
+
       {/* 桌面模式 - 始终显示 */}
       <div className="relative z-10 flex-1 overflow-hidden">
         <Desktop
@@ -1580,6 +1638,8 @@ const Canvas: React.FC<CanvasProps> = ({
           onFileDrop={onFileDrop}
           onCreateCreativeIdea={onCreateCreativeIdea}
           onSetCreativeAssets={onSetCreativeAssets}
+          onUploadToRH={onUploadToRH}
+          onRefresh={onRefresh}
         />
 
         {/* 生成结果浮层 - 毛玻璃效果 + 最小化联动 */}
@@ -1677,14 +1737,25 @@ export const defaultSmartPlusConfig: SmartPlusConfig = [
 ];
 
 const App: React.FC = () => {
+  // RunningHub App Library State
+  const [activeRHAppId, setActiveRHAppId] = useState<string>('');
+
+  const [localFavorites, setLocalFavorites] = useState<AppPoolItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'favorites' | 'recommended' | 'runninghub'>('favorites');
+
   const [files, setFiles] = useState<File[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState<number | null>(null);
+
+  // 視圖狀態
+  const [view, setView] = useState<'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer'>('editor');
 
   const [prompt, setPrompt] = useState<string>('');
   const [status, setStatus] = useState<ApiStatus>(ApiStatus.Idle);
   const [error, setError] = useState<string | null>(null);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  console.log('[DEBUG] App rendering. View:', view); // Debug log
 
   const [smartPromptGenStatus, setSmartPromptGenStatus] = useState<ApiStatus>(ApiStatus.Idle);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -1708,7 +1779,7 @@ const App: React.FC = () => {
     return [...localCreativeIdeas].sort((a, b) => (b.order || 0) - (a.order || 0));
   }, [localCreativeIdeas]);
 
-  const [view, setView] = useState<'editor' | 'local-library' | 'interior-design'>('editor'); // 默认桌面模式
+
   const [isAddIdeaModalOpen, setAddIdeaModalOpen] = useState(false);
   const [editingIdea, setEditingIdea] = useState<CreativeIdea | null>(null);
   const [presetImageForNewIdea, setPresetImageForNewIdea] = useState<string | null>(null); // 从桌面图片创建创意库时的预设图片
@@ -1761,6 +1832,173 @@ const App: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false); // 导入状态
   const [isImportingById, setIsImportingById] = useState(false); // 按ID导入状态
   const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking'); // 后端连接状态
+
+  const [rhUploadFile, setRhUploadFile] = useState<File | null>(null); // RunningHub 上传外部文件
+
+  // 救援孤兒任務：對桌面上壞掉的 RH 任務，直接查 API 救回圖片
+  const recoverOrphanedTasks = async (items: DesktopItem[]) => {
+    const orphanTasks = items.filter(item =>
+      item.type === 'image' &&
+      item.id.startsWith('rh-') &&
+      (!(item as DesktopImageItem).imageUrl || (item as DesktopImageItem).loadingError)
+    ) as DesktopImageItem[];
+
+    if (orphanTasks.length === 0) return;
+
+    const apiKey = localStorage.getItem('rh_api_key');
+    if (!apiKey) return;
+
+    console.log(`[Auto-Fix] 發現 ${orphanTasks.length} 個待修復的 RunningHub 任務，嘗試從 API 救援...`);
+
+    try {
+      // 動態導入以避免循環依賴
+      const { queryTaskOutputs } = await import('./src/services/runningHub/api');
+      const { API_CODE } = await import('./src/services/runningHub/types');
+
+      let hasUpdates = false;
+      // 使用 items 的深拷貝以免直接修改 state
+      const updatedItems = [...items];
+
+      // 並行查詢
+      await Promise.all(orphanTasks.map(async (taskItem) => {
+        const taskId = taskItem.id.replace('rh-', '');
+        try {
+          const response = await queryTaskOutputs(apiKey, taskId);
+
+          if (response && response.code === API_CODE.SUCCESS && response.data && response.data.length > 0) {
+            // 兼容不同的回傳格式
+            // 格式1: [{ fileUrl: "..." }]
+            // 格式2: [{ url: "..." }]
+            // 格式3: ["http..."] (純字串陣列)
+            let fileUrl = '';
+            const firstResult = response.data[0];
+
+            if (typeof firstResult === 'string') {
+              fileUrl = firstResult;
+            } else if (typeof firstResult === 'object') {
+              fileUrl = firstResult.fileUrl || firstResult.url;
+            }
+
+            if (fileUrl) {
+              console.log(`[Auto-Fix] 成功救援圖片: ${taskItem.name} -> ${fileUrl}`);
+
+              const index = updatedItems.findIndex(i => i.id === taskItem.id);
+              if (index !== -1) {
+                updatedItems[index] = {
+                  ...updatedItems[index],
+                  imageUrl: fileUrl,
+                  isLoading: false,
+                  loadingError: undefined // 清除錯誤
+                } as DesktopImageItem;
+                hasUpdates = true;
+              }
+            } else {
+              console.log(`[Auto-Fix] 任務 ${taskId} 查詢成功但無圖片 URL`);
+            }
+          } else {
+            // 任務非成功狀態或無數據
+            console.log(`[Auto-Fix] 任務 ${taskId} 狀態: ${response?.code}, 無法修復`);
+          }
+        } catch (e) {
+          console.warn(`[Auto-Fix] 無法救援任務 ${taskId}:`, e);
+        }
+      }));
+
+      if (hasUpdates) {
+        console.log('[Auto-Fix] 救援完成，更新桌面項目');
+        // 這裡有閉包陷阱，必須確保 safeDesktopSave 和 setDesktopItems 是最新的
+        // 但由於這是在 loadDataFromLocal 流程中，我們可以直接使用剛計算出來的 updatedItems
+        setDesktopItems(updatedItems);
+        safeDesktopSave(updatedItems);
+      } else {
+        console.log('[Auto-Fix] 救援結束，無可用更新');
+      }
+
+    } catch (e) {
+      console.error('[Auto-Fix] 導入 API 模組失敗', e);
+    }
+  };
+
+  // [Auto-Fix V2] 救援孤兒任務：API 查詢 + saveToHistory 下載 (確保本地檔案)
+  const recoverOrphanedTasksV2 = async (items: DesktopItem[]) => {
+    // 找出所有 RH 圖片項目
+    const orphanTasks = items.filter(item =>
+      item.type === 'image' &&
+      item.id.startsWith('rh-') &&
+      (!(item as DesktopImageItem).imageUrl || (item as DesktopImageItem).loadingError)
+    ) as DesktopImageItem[];
+
+    if (orphanTasks.length === 0) return;
+
+    const apiKey = localStorage.getItem('rh_api_key');
+    if (!apiKey) return;
+
+    console.log(`[Auto-Fix V2] 發現 ${orphanTasks.length} 個待修復的 RunningHub 任務，嘗試從 API 救援...`);
+
+    try {
+      // 動態導入以避免循環依賴
+      const { queryTaskOutputs } = await import('./src/services/runningHub/api');
+      const { API_CODE } = await import('./src/services/runningHub/types');
+
+      let hasUpdates = false;
+      const updatedItems = [...items];
+
+      await Promise.all(orphanTasks.map(async (taskItem) => {
+        const taskId = taskItem.id.replace('rh-', '');
+        try {
+          const response = await queryTaskOutputs(apiKey, taskId);
+
+          if (response && response.code === API_CODE.SUCCESS && response.data && response.data.length > 0) {
+            let fileUrl = '';
+            const firstResult = response.data[0];
+
+            if (typeof firstResult === 'string') {
+              fileUrl = firstResult;
+            } else if (typeof firstResult === 'object') {
+              fileUrl = firstResult.fileUrl || firstResult.url;
+            }
+
+            if (fileUrl) {
+              console.log(`[Auto-Fix V2] API 查詢成功: ${taskItem.name} -> ${fileUrl}`);
+
+              // 關鍵步驟：下載並保存到歷史紀錄，確保本地有檔案
+              // 注意：這裡我們使用 saveToHistory 來處理下載，但可能不會重複建立歷史紀錄(視後端邏輯而定)
+              // 為了簡化，我們只關注取回本地路徑
+              const saveRes = await saveToHistory(fileUrl, taskItem.prompt || '', true);
+              const localUrl = saveRes?.localImageUrl || fileUrl;
+
+              console.log(`[Auto-Fix V2] 圖片已同步至本地: ${localUrl}`);
+
+              const index = updatedItems.findIndex(i => i.id === taskItem.id);
+              if (index !== -1) {
+                updatedItems[index] = {
+                  ...updatedItems[index],
+                  imageUrl: localUrl,
+                  isLoading: false,
+                  loadingError: undefined,
+                  historyId: saveRes?.historyId || (taskItem as DesktopImageItem).historyId
+                } as DesktopImageItem;
+                hasUpdates = true;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[Auto-Fix V2] 無法救援任務 ${taskId}:`, e);
+        }
+      }));
+
+      if (hasUpdates) {
+        console.log('[Auto-Fix V2] 救援完成，更新桌面項目');
+        setDesktopItems(updatedItems);
+        safeDesktopSave(updatedItems);
+      } else {
+        console.log('[Auto-Fix V2] 檢查完成，無須更新');
+      }
+    } catch (e) {
+      console.error('[Auto-Fix] 導入 API 模組失敗', e);
+    }
+  };
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importIdeasInputRef = useRef<HTMLInputElement>(null);
@@ -1900,11 +2138,31 @@ const App: React.FC = () => {
               }
             }
 
+            // [Auto-Fix] 尝试修复 RunningHub 任务生成的图片 (ID 以 rh- 开头)
+            if (imageItem.id.startsWith('rh-') && (!restored.imageUrl || restored.imageUrl === '' || restored.loadingError)) {
+              // 从 Zustand Store (localStorage) 中查找任务
+              const rhTasks = useTaskStore.getState().tasks;
+              const taskId = imageItem.id.replace('rh-', '');
+              const task = rhTasks.find(t => t.id === taskId);
+
+              if (task && task.status === 'SUCCESS' && task.result && task.result.length > 0) {
+                console.log(`[Auto-Fix] 修复 RunningHub 缩略图: ${imageItem.name} -> ${task.result[0].fileUrl}`);
+                restored.imageUrl = task.result[0].fileUrl;
+                restored.isLoading = false;
+                restored.loadingError = undefined;
+              }
+            }
+
             return restored;
           }
           return item;
         });
+        // 按照創建時間倒序排序，確保最新的顯示在前面
+        restoredItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setDesktopItems(restoredItems);
+
+        // [Auto-Fix] 啟動異步救援 (使用 V2 本地路徑版)
+        recoverOrphanedTasksV2(restoredItems);
       } else {
         console.warn('加载桌面状态失败:', desktopResult.error);
         setDesktopItems([]);
@@ -2123,7 +2381,7 @@ const App: React.FC = () => {
       bpInputs?: Record<string, string>;
       smartPlusOverrides?: SmartPlusConfig;
     }
-  ): Promise<{ historyId?: number; localImageUrl: string } | undefined> => {
+  ): Promise<{ historyId?: number; localImageUrl: string; localThumbnailUrl?: string } | undefined> => {
     // 将输入图片转换为 base64 保存
     let inputImageData: string | undefined;
     let inputImageName: string | undefined;
@@ -2178,6 +2436,10 @@ const App: React.FC = () => {
         const downloadResult = await downloadRemoteToOutput(imageUrl);
         if (downloadResult.success && downloadResult.data) {
           localImageUrl = downloadResult.data.url;
+          if (downloadResult.thumbnail) {
+            // 捕獲縮略圖 URL
+            var localThumbnailUrl = downloadResult.thumbnail.url;
+          }
           console.log('远程URL图片已保存到本地:', localImageUrl);
         } else {
           console.warn('后端下载远程图片失败:', downloadResult.error);
@@ -2209,14 +2471,16 @@ const App: React.FC = () => {
       const result = await historyApi.createHistory(historyWithoutId as any);
       if (result.success && result.data) {
         setGenerationHistory(prev => [result.data!, ...prev].slice(0, 50));
-        return { historyId: result.data.id, localImageUrl };
+        setGenerationHistory(prev => [result.data!, ...prev].slice(0, 50));
+        return { historyId: result.data.id, localImageUrl, localThumbnailUrl };
       }
       console.error('保存历史记录失败:', result.error);
     } catch (e) {
       console.error('保存历史记录失败:', e);
     }
     // 即使保存历史记录失败，也返回本地URL供桌面使用
-    return { historyId: undefined, localImageUrl };
+    // 即使保存历史记录失败，也返回本地URL供桌面使用
+    return { historyId: undefined, localImageUrl, localThumbnailUrl };
   };
 
   // 图片下载逻辑已迁移到 services/export/desktopExporter.ts
@@ -3305,7 +3569,32 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error('设置素材失败:', e);
-      setError('无法设置素材，请重试');
+      setError('無法設置素材，請重試');
+    }
+  }, []);
+
+  // 桌面圖片操作 - 上傳到 RunningHub
+  const handleUploadToRH = useCallback(async (items: DesktopImageItem[]) => {
+    try {
+      if (items.length === 0) return;
+
+      // 目前 MiniRunningHub 只支持單個文件上傳，取選中的第一個
+      const item = items[0];
+      if (!item.imageUrl) return;
+
+      // 將圖片URL轉換為File對象
+      const response = await fetch(item.imageUrl);
+      const blob = await response.blob();
+      // 使用時間戳確保唯一性
+      const file = new File([blob], `${item.name}-${Date.now()}.png`, { type: 'image/png' });
+
+      setRhUploadFile(file);
+
+      // 可選：如果不希望用戶跳轉，可以留在桌面
+      // 但通常上傳到 RH 後用戶會想去那邊看看，這裡我們不強制跳轉，讓用戶自己決定
+    } catch (e) {
+      console.error('上傳到RH失敗:', e);
+      setError('無法上傳到RH，請重試');
     }
   }, []);
 
@@ -3438,6 +3727,19 @@ const App: React.FC = () => {
 
   const { theme, themeName } = useTheme();
 
+  // RunningHub 任務成功回調
+  const handleRunningHubSuccess = useCallback((outputs: any[]) => {
+    if (outputs && outputs.length > 0) {
+      // 設置生成結果以顯示彈窗
+      setGeneratedContent({ imageUrl: outputs[0].fileUrl });
+      setStatus(ApiStatus.Success);
+
+      // 刷新數據（確保桌面縮略圖更新）
+      // [Config] 關閉自動刷新，避免重置其他正在進行的任務狀態
+      // loadDataFromLocal();
+    }
+  }, []);
+
   return (
     <div
       className="h-screen font-sans flex flex-row overflow-hidden selection:bg-blue-500/30 transition-colors duration-300"
@@ -3466,7 +3768,7 @@ const App: React.FC = () => {
       />
 
       {/* 左侧面板 - 在室內設計頁面隱藏 */}
-      {view !== 'interior-design' && (
+      {view !== 'interior-design' && view !== 'runninghub' && (
         <div className="flex-shrink-0">
           <LeftPanel
             files={files}
@@ -3505,144 +3807,258 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 圖片反推面板 - 在室內設計頁面隱藏 */}
-      {view !== 'interior-design' && (
-        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm">
-          <ReversePromptPanel
-            files={files}
-            onPromptGenerate={handleSetPrompt}
-          />
+      {/* 圖片反推面板 + 拍攝角度控制器 */}
+      {view !== 'interior-design' && view !== 'runninghub' && (
+        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300">
+          <div className="flex-1 overflow-hidden border-b border-white/5">
+            <ReversePromptPanel
+              files={files}
+              onPromptGenerate={handleSetPrompt}
+            />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <CameraAngleController
+              onApply={(newPrompt) => {
+                handleSetPrompt(prev => {
+                  // 檢查是否存在舊的 <sks> 標籤
+                  const sksIndex = prev.indexOf('<sks>');
+                  if (sksIndex !== -1) {
+                    // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
+                    const before = prev.substring(0, sksIndex).trim();
+                    const cleanBefore = before.replace(/,\s*$/, '');
+                    return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
+                  }
+
+                  // 如果不存在，則直接追加
+                  const trimmed = prev.trim();
+                  if (!trimmed) return newPrompt;
+                  if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
+                  return trimmed + ', ' + newPrompt;
+                });
+              }}
+            />
+          </div>
         </div>
       )}
 
-      {/* 拍攝角度控制器 - 在室內設計頁面隱藏 */}
-      {view !== 'interior-design' && (
-        <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300">
-          <CameraAngleController
-            onApply={(newPrompt) => {
-              handleSetPrompt(prev => {
-                // 檢查是否存在舊的 <sks> 標籤
-                const sksIndex = prev.indexOf('<sks>');
-                if (sksIndex !== -1) {
-                  // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
-                  const before = prev.substring(0, sksIndex).trim();
-                  const cleanBefore = before.replace(/,\s*$/, '');
-                  return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
-                }
+      {/* RunningHub 面板 (全高) - 在室內設計頁面隱藏 */}
+      {view !== 'interior-design' && view !== 'runninghub' && (
+        <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300 flex flex-col">
+          <div className="flex-1 w-full h-full overflow-hidden">
+            <MiniRunningHub
+              onHistoryUpdate={loadDataFromLocal}
+              externalFile={rhUploadFile}
+              onTaskSuccess={handleRunningHubSuccess}
+              activeAppId={activeRHAppId}
+              onTaskStart={async (taskId, promptValue) => {
+                // 1. 創建並保存佔位符
+                const pos = findNextFreePosition();
+                const placeholder: DesktopImageItem = {
+                  id: `rh-${taskId}`,
+                  type: 'image',
+                  name: `RH: ${promptValue.slice(0, 10)}...`,
+                  position: pos,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                  imageUrl: '', // 空表示加載中
+                  prompt: promptValue,
+                  model: 'RunningHub',
+                  isThirdParty: true,
+                  isLoading: true,
+                };
 
-                // 如果不存在，則直接追加
-                const trimmed = prev.trim();
-                if (!trimmed) return newPrompt;
-                if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
-                return trimmed + ', ' + newPrompt;
-              });
-            }}
-          />
+                const newItems = [...desktopItems, placeholder];
+                setDesktopItems(newItems);
+                safeDesktopSave(newItems); // 確保立即保存狀態
+
+                // 2. 啟動後台監控 (不阻塞 UI)
+                const monitorTask = async () => {
+                  try {
+                    // 動態導入以避免循環依賴或過大
+                    const { queryTaskOutputs } = await import('./src/services/runningHub/api');
+                    const { API_CODE } = await import('./src/services/runningHub/types');
+                    const savedApiKey = localStorage.getItem('rh_api_key') || '';
+
+                    if (!savedApiKey) return;
+
+                    const poll = async () => {
+                      try {
+                        const response = await queryTaskOutputs(savedApiKey, taskId);
+                        if (response.code === API_CODE.SUCCESS) {
+                          const outputs = Array.isArray(response.data)
+                            ? response.data.map((item: any) => ({ fileUrl: item.fileUrl || item.url || item }))
+                            : [];
+
+                          if (outputs.length > 0) {
+                            const imageUrl = outputs[0].fileUrl;
+
+                            // 下載並保存到歷史
+                            const saveRes = await saveToHistory(imageUrl, promptValue, true);
+
+                            // 觸發成功回調
+                            handleRunningHubSuccess(outputs);
+
+                            // 更新桌面項
+                            setDesktopItems(current => current.map(item =>
+                              item.id === placeholder.id
+                                ? { ...item, imageUrl: saveRes?.localImageUrl || imageUrl, thumbnailUrl: saveRes?.localThumbnailUrl, isLoading: false, historyId: saveRes?.historyId }
+                                : item
+                            ));
+
+                            // [Fix] 不再調用 loadDataFromLocal()，避免重置其他進行中的任務
+                            // 如果需要同步歷史記錄，只更新 history 狀態
+                            if (saveRes?.historyId) {
+                              setGenerationHistory(prev => [
+                                { id: saveRes.historyId, imageUrl: saveRes.localImageUrl || imageUrl, prompt: promptValue, createdAt: new Date().toISOString() },
+                                ...prev
+                              ]);
+                            }
+
+                            // [Fix] 檢查自動保存設定，如果開啟則觸發額外的下載
+                            const isAutoSaveEnabled = localStorage.getItem('auto_save_enabled') === 'true';
+                            if (isAutoSaveEnabled) {
+                              downloadImage(saveRes?.localImageUrl || imageUrl);
+                            }
+                          }
+                        } else if (response.code === API_CODE.FAILED) {
+                          throw new Error(response.msg || 'Task Failed');
+                        } else {
+                          // 繼續輪詢
+                          setTimeout(poll, 3000);
+                        }
+                      } catch (err: any) {
+                        console.error('Monitoring failed:', err);
+                        setDesktopItems(current => current.map(item =>
+                          item.id === placeholder.id
+                            ? { ...item, isLoading: false, loadingError: err.message }
+                            : item
+                        ));
+                      }
+                    };
+
+                    poll();
+                  } catch (e) {
+                    console.error('Failed to start monitor:', e);
+                  }
+                };
+
+                monitorTask();
+              }}
+            />
+          </div>
         </div>
       )}
 
       <div className="relative flex-1 flex min-w-0">
 
-        <Canvas
-          view={view}
-          setView={setView}
-          files={files}
-          onUploadClick={() => fileInputRef.current?.click()}
-          creativeIdeas={creativeIdeas}
-          localCreativeIdeas={localCreativeIdeas}
-          onBack={() => setView('editor')}
-          onAdd={handleAddNewIdea}
-          onDelete={handleDeleteCreativeIdea}
-          onDeleteMultiple={handleDeleteMultipleCreativeIdeas}
-          onEdit={handleStartEditIdea}
-          onUse={handleUseCreativeIdea}
-          status={status}
-          error={error}
-          content={generatedContent}
-          onPreviewClick={setPreviewImageUrl}
-          onExportIdeas={handleExportIdeas}
-          onImportIdeas={() => importIdeasInputRef.current?.click()}
-          onImportById={handleImportCreativeById}
-          onReorderIdeas={handleReorderIdeas}
-          onEditAgain={handleEditAgain}
-          onRegenerate={handleRegenerate}
-          onDismissResult={handleDismissResult}
-          prompt={prompt}
-          imageSize={imageSize}
-          history={generationHistory}
-          onHistorySelect={handleHistorySelect}
-          onHistoryDelete={handleHistoryDelete}
-          onHistoryClear={handleHistoryClear}
-          desktopItems={desktopItems}
-          onDesktopItemsChange={handleDesktopItemsChange}
-          onDesktopImageDoubleClick={handleDesktopImageDoubleClick}
-          desktopSelectedIds={desktopSelectedIds}
-          onDesktopSelectionChange={setDesktopSelectedIds}
-          openFolderId={openFolderId}
-          onFolderOpen={setOpenFolderId}
-          onFolderClose={() => setOpenFolderId(null)}
-          openStackId={openStackId}
-          onStackOpen={setOpenStackId}
-          onStackClose={() => setOpenStackId(null)}
-          onRenameItem={handleRenameItem}
-          onDesktopImagePreview={handleDesktopImagePreview}
-          onDesktopImageEditAgain={handleDesktopImageEditAgain}
-          onDesktopImageRegenerate={handleDesktopImageRegenerate}
-          onFileDrop={handleFileSelection}
-          onCreateCreativeIdea={handleCreateCreativeIdeaFromImage}
-          onSetCreativeAssets={handleSetCreativeAssets}
-          isResultMinimized={isResultMinimized}
-          setIsResultMinimized={setIsResultMinimized}
-          onToggleFavorite={handleToggleFavorite}
-          isImporting={isImporting}
-          isImportingById={isImportingById}
-        />
-        {view === 'editor' && (
-          <div className="absolute left-1/2 -translate-x-1/2 z-30 transition-all duration-300 bottom-6 flex items-center gap-3">
-            {/* 批量生成数量选择器 - 简洁设计 */}
-            <div className="flex items-center bg-black/40 backdrop-blur-xl rounded-full px-1.5 py-1 border border-white/10">
-              {/* 减少按钮 */}
-              <button
-                onClick={() => setBatchCount(Math.max(1, batchCount - 1))}
-                disabled={batchCount <= 1}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
-              </button>
-              {/* 数量显示 */}
-              <span className="w-6 text-center text-xs font-medium text-white">{batchCount}</span>
-              {/* 增加按钮 */}
-              <button
-                onClick={() => setBatchCount(Math.min(20, batchCount + 1))}
-                disabled={batchCount >= 20}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              </button>
-            </div>
-            <GenerateButton
-              onClick={handleGenerateClick}
-              disabled={!canGenerate}
+        {view === 'runninghub' ? (
+          <RunningHubView setView={setView} localCreativeIdeasCount={localCreativeIdeas.length} />
+        ) : (
+          <>
+            <Canvas
+              view={view}
+              setView={setView}
+              files={files}
+              onUploadClick={() => fileInputRef.current?.click()}
+              creativeIdeas={creativeIdeas}
+              localCreativeIdeas={localCreativeIdeas}
+              onBack={() => setView('editor')}
+              onAdd={handleAddNewIdea}
+              onDelete={handleDeleteCreativeIdea}
+              onDeleteMultiple={handleDeleteMultipleCreativeIdeas}
+              onEdit={handleStartEditIdea}
+              onUse={handleUseCreativeIdea}
               status={status}
-              hasMinimizedResult={isResultMinimized && (status === ApiStatus.Loading || status === ApiStatus.Success || status === ApiStatus.Error)}
-              onExpandResult={() => setIsResultMinimized(false)}
+              error={error}
+              content={generatedContent}
+              onPreviewClick={setPreviewImageUrl}
+              onExportIdeas={handleExportIdeas}
+              onImportIdeas={() => importIdeasInputRef.current?.click()}
+              onImportById={handleImportCreativeById}
+              onReorderIdeas={handleReorderIdeas}
+              onEditAgain={handleEditAgain}
+              onRegenerate={handleRegenerate}
+              onDismissResult={handleDismissResult}
+              prompt={prompt}
+              imageSize={imageSize}
+              history={generationHistory}
+              onHistorySelect={handleHistorySelect}
+              onHistoryDelete={handleHistoryDelete}
+              onHistoryClear={handleHistoryClear}
+              desktopItems={desktopItems}
+              onDesktopItemsChange={handleDesktopItemsChange}
+              onDesktopImageDoubleClick={handleDesktopImageDoubleClick}
+              desktopSelectedIds={desktopSelectedIds}
+              onDesktopSelectionChange={setDesktopSelectedIds}
+              openFolderId={openFolderId}
+              onFolderOpen={setOpenFolderId}
+              onFolderClose={() => setOpenFolderId(null)}
+              openStackId={openStackId}
+              onStackOpen={setOpenStackId}
+              onStackClose={() => setOpenStackId(null)}
+              onRenameItem={handleRenameItem}
+              onDesktopImagePreview={handleDesktopImagePreview}
+              onDesktopImageEditAgain={handleDesktopImageEditAgain}
+              onDesktopImageRegenerate={handleDesktopImageRegenerate}
+              onFileDrop={handleFileSelection}
+              onCreateCreativeIdea={handleCreateCreativeIdeaFromImage}
+              onSetCreativeAssets={handleSetCreativeAssets}
+              isResultMinimized={isResultMinimized}
+              setIsResultMinimized={setIsResultMinimized}
+              onToggleFavorite={handleToggleFavorite}
+              isImporting={isImporting}
+              isImportingById={isImportingById}
+              onRefresh={loadDataFromLocal}
+              onUploadToRH={handleUploadToRH}
             />
-            {/* 批量生成按钮 */}
-            {files.length >= 2 && (
-              <div className="animate-in fade-in zoom-in duration-300 ml-2">
-                <BatchGenerateButton
-                  onClick={handleBatchGenerate}
-                  disabled={status === ApiStatus.Loading} // 全局Loading时禁用，虽然批量本身是独立的Loading状态
-                  status={ApiStatus.Idle} // 批量生成不使用全局status显示loading，而是各自item显示
-                  count={files.length - 1}
+            {view === 'editor' && (
+              <div className="absolute left-1/2 -translate-x-1/2 z-30 transition-all duration-300 bottom-6 flex items-center gap-3">
+                {/* 批量生成数量选择器 - 简洁设计 */}
+                <div className="flex items-center bg-black/40 backdrop-blur-xl rounded-full px-1.5 py-1 border border-white/10">
+                  {/* 减少按钮 */}
+                  <button
+                    onClick={() => setBatchCount(Math.max(1, batchCount - 1))}
+                    disabled={batchCount <= 1}
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                  </button>
+                  {/* 数量显示 */}
+                  <span className="w-6 text-center text-xs font-medium text-white">{batchCount}</span>
+                  {/* 增加按钮 */}
+                  <button
+                    onClick={() => setBatchCount(Math.min(20, batchCount + 1))}
+                    disabled={batchCount >= 20}
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  </button>
+                </div>
+                <GenerateButton
+                  onClick={handleGenerateClick}
+                  disabled={!canGenerate}
+                  status={status}
+                  hasMinimizedResult={isResultMinimized && (status === ApiStatus.Loading || status === ApiStatus.Success || status === ApiStatus.Error)}
+                  onExpandResult={() => setIsResultMinimized(false)}
                 />
+                {/* 批量生成按钮 */}
+                {files.length >= 2 && (
+                  <div className="animate-in fade-in zoom-in duration-300 ml-2">
+                    <BatchGenerateButton
+                      onClick={handleBatchGenerate}
+                      disabled={status === ApiStatus.Loading} // 全局Loading时禁用，虽然批量本身是独立的Loading状态
+                      status={ApiStatus.Idle} // 批量生成不使用全局status显示loading，而是各自item显示
+                      count={files.length - 1}
+                    />
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
       {/* 右侧面板 - 在室內設計頁面隱藏 */}
-      {view !== 'interior-design' && (
+      {view !== 'interior-design' && view !== 'runninghub' && (
         <div className="flex-shrink-0">
           <RightPanel
             creativeIdeas={creativeIdeas}
@@ -3653,6 +4069,7 @@ const App: React.FC = () => {
             onEditIdea={handleStartEditIdea}
             onToggleFavorite={handleToggleFavorite}
             onClearRecentUsage={handleClearRecentUsage}
+            onSelectApp={setActiveRHAppId}
           />
         </div>
       )}
