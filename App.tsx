@@ -4026,8 +4026,44 @@ const App: React.FC = () => {
                                         .then(result => {
                                           if (result.success && result.localUrl) {
                                             console.log('[AutoDecode] Success:', result.filePath);
+
+                                            // 檢查是否已經存在相同的解碼項目（避免重複添加導致閃爍）
                                             setDesktopItems(current => {
-                                              const freePos = findNextFreePosition();
+                                              const alreadyExists = current.some(item =>
+                                                item.imageUrl === result.localUrl
+                                              );
+
+                                              if (alreadyExists) {
+                                                console.log('[AutoDecode] Item already exists, skipping');
+                                                return current;
+                                              }
+
+
+                                              // 在函數式更新內部計算空閒位置，使用最新的 current 狀態
+                                              const gridSize = 100;
+                                              const maxCols = 10;
+                                              const occupiedPositions = new Set(
+                                                current
+                                                  .filter(item => {
+                                                    const isInFolder = current.some(
+                                                      other => other.type === 'folder' && (other as any).itemIds?.includes(item.id)
+                                                    );
+                                                    return !isInFolder;
+                                                  })
+                                                  .map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
+                                              );
+
+                                              let freePos = { x: 0, y: 0 };
+                                              outerLoop: for (let y = 0; y < 100; y++) {
+                                                for (let x = 0; x < maxCols; x++) {
+                                                  const key = `${x},${y}`;
+                                                  if (!occupiedPositions.has(key)) {
+                                                    freePos = { x: x * gridSize, y: y * gridSize };
+                                                    break outerLoop;
+                                                  }
+                                                }
+                                              }
+
                                               const newItem: DesktopImageItem = {
                                                 id: `decoded-${time}-${Math.random().toString(36).substring(7)}`,
                                                 type: 'image',

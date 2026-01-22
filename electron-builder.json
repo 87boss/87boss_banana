@@ -15,10 +15,11 @@
         "electron/**/*",
         "public/rh.png",
         "backend-nodejs/**/*",
-        "node_modules/**/*",
-        "!node_modules/**/test/**",
-        "!node_modules/**/*.md",
-        "!node_modules/**/.bin/**"
+        "!backend-nodejs/.venv/**",
+        "!backend-nodejs/node_modules/**",
+        "!**/test/**",
+        "!**/*.md",
+        "!**/.bin/**"
     ],
     "asarUnpack": [
         "node_modules/archiver/**/*",
@@ -28,7 +29,12 @@
         "extraResources/**/*",
         {
             "from": "backend-nodejs",
-            "to": "backend-nodejs"
+            "to": "backend-nodejs",
+            "filter": [
+                "**/*",
+                "!.venv/**",
+                "!node_modules/**"
+            ]
         }
     ],
     "win": {
