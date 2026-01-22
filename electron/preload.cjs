@@ -30,8 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (url, name, subDir) => ipcRenderer.invoke('rh-save-file', { url, name, subDir }),
     getConfig: () => ipcRenderer.invoke('rh-get-config'),
     saveConfig: (settings) => ipcRenderer.invoke('rh-save-config', settings),
-    decodeImage: (buffer, fileName) => ipcRenderer.invoke('rh-decode-image', { buffer, fileName })
+    decodeImage: (buffer, fileName, filePath) => ipcRenderer.invoke('rh-decode-image', { buffer, fileName, filePath })
   },
+
+  // Top-level alias for backward compatibility
+  decodeImage: (buffer, fileName, filePath) => ipcRenderer.invoke('rh-decode-image', { buffer, fileName, filePath }),
 
   // --- File Explorer IPC ---
   fileExplorer: {

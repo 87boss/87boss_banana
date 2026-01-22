@@ -44,6 +44,31 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
     const [webappId, setWebappId] = useState('');
     const [showSettings, setShowSettings] = useState(false);
 
+    // Persistence: Load config from backend
+    useEffect(() => {
+        if ((window as any).electronAPI?.runningHub?.getConfig) {
+            (window as any).electronAPI.runningHub.getConfig().then((res: any) => {
+                if (res.success && res.data) {
+                    if (res.data.apiKey) {
+                        setApiKey(res.data.apiKey);
+                        localStorage.setItem('rh_api_key', res.data.apiKey); // Sync to localStorage
+                    }
+                    if (res.data.webappId) {
+                        setWebappId(res.data.webappId);
+                    }
+                }
+            });
+        }
+    }, []);
+
+    const handleWebappIdChange = (val: string) => {
+        setWebappId(val);
+        // Debounce or save directly? Saving directly for simplicity as it's local
+        if ((window as any).electronAPI?.runningHub?.saveConfig) {
+            (window as any).electronAPI.runningHub.saveConfig({ webappId: val });
+        }
+    };
+
     // 狀態
     const [step, setStep] = useState<Step>('idle');
     const [error, setError] = useState<string | null>(null);
@@ -58,6 +83,7 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
     const [result, setResult] = useState<TaskOutput[] | null>(null);
     const [decodedResults, setDecodedResults] = useState<Map<number, string>>(new Map());
     const [savedPaths, setSavedPaths] = useState<string[]>([]);
+    const [taskId, setTaskId] = useState<string | null>(null);
 
     // App 資訊
     const [appName, setAppName] = useState<string>('');
@@ -181,12 +207,10 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
 
     // 自動保存結果到 output 資料夾 + 添加到歷史記錄
     const autoSaveResults = useCallback(async (outputs: TaskOutput[]) => {
-        // [Fix] 檢查自動保存設定是否開啟
-        const isAutoSaveEnabled = localStorage.getItem('auto_save_enabled') === 'true';
-        if (!isAutoSaveEnabled) {
-            console.log('[MiniRH] Auto-save disabled, skipping');
-            return;
-        }
+        // [Force] 強制自動保存，確保有本地檔案供解碼使用
+        // const isAutoSaveEnabled = localStorage.getItem('auto_save_enabled') === 'true';
+        // if (!isAutoSaveEnabled) return;
+        console.log('[MiniRH] Auto-saving results (Forced for decoding)...');
 
         const electronAPI = (window as any).electronAPI;
         if (!electronAPI?.runningHub?.saveFile) {
@@ -211,9 +235,13 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
                     paths.push(result.path);
 
                     // 添加到歷史記錄以顯示在桌面
+                    const filename = path.basename(result.path);
+                    // [Fix] Use /files/output/ protocol which maps to the local file system properly for Electron renderer
+                    const localUrl = `/files/output/${filename}`;
+
                     const historyItem: GenerationHistory = {
                         id: timestamp + idx, // 使用時間戳 + 索引作為 ID
-                        imageUrl: output.fileUrl, // 使用遠端 URL，或 file:// + result.path
+                        imageUrl: localUrl,
                         prompt: `RunningHub: ${appName || webappId}`,
                         timestamp: timestamp,
                         model: 'RunningHub',
@@ -279,6 +307,14 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
         }
 
         console.log('[MiniRH] Auto-save completed:', paths.length, 'files');
+
+        // [UI Fix] 任務完成後清空結果，避免佔用上傳框，並提示已保存到桌面
+        setTimeout(() => {
+            setResult(null); // 回到上傳介面
+            setDecodedResults(new Map());
+            // 移除 alert，改為靜默處理
+            console.log(`[MiniRH] Silent save completed: ${paths.length} files`);
+        }, 1000); // 延遲 1 秒讓用戶看到進度條完成
     }, [webappId, appName, onResultSaved, onHistoryUpdate]);
 
     // 執行工作流
@@ -329,10 +365,17 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
                 onTaskStart(submission.taskId, String(promptValue));
             }
 
-            // 重置狀態，讓用戶可繼續操作
+            // 更新狀態並開始輪詢
             console.log('[MiniRH] Task submitted:', submission.taskId);
-            setStep('idle');
-            setProgress(0);
+            setTaskId(submission.taskId);
+
+            // [UI Optimization] 如果有外部監控 (onTaskStart)，則立即恢復按鈕狀態，允許下一個任務
+            if (onTaskStart) {
+                setTimeout(() => {
+                    setStep('idle');
+                    setProgress(0);
+                }, 500);
+            }
         } catch (err: any) {
             const errorMsg = err.message ? simplifiedToTraditional(err.message) : '';
             setError(errorMsg || getTranslation('labels.executionFailed'));
@@ -340,23 +383,99 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
         }
     }, [webappId, selectedFile, nodeInfoList, paramValues, onTaskStart]);
 
+    // 輪詢任務狀態
+    useEffect(() => {
+        let intervalId: NodeJS.Timeout;
+
+        if (taskId && step === 'running') {
+            console.log('[MiniRH] Start polling for taskId:', taskId);
+
+            const checkStatus = async () => {
+                const currentApiKey = getStoredApiKey();
+                if (!currentApiKey) return;
+
+                try {
+                    const res = await queryTaskOutputs(currentApiKey, taskId);
+
+                    if (res.code === API_CODE.SUCCESS) {
+                        // 任務完成
+                        console.log('[MiniRH] Task success:', res.data);
+                        const outputs = res.data as TaskOutput[];
+                        setResult(outputs);
+                        setStep('success');
+                        setTaskId(null); // 停止輪詢
+
+                        // 觸發自動保存
+                        await autoSaveResults(outputs);
+
+                        if (onTaskSuccess) {
+                            onTaskSuccess(outputs);
+                        }
+                    } else if (res.code === API_CODE.FAILED) {
+                        // 任務失敗
+                        console.error('[MiniRH] Task failed:', res.msg);
+                        setError(res.msg || 'Task execution failed');
+                        setStep('error');
+                        setTaskId(null);
+                    } else if (res.code === API_CODE.RUNNING || res.code === API_CODE.QUEUED) {
+                        // 繼續輪詢
+                        if (res.data && typeof res.data === 'string') {
+                            // 有時會返回進度字串? 這裡假設如果有進度信息可以更新
+                            // setProgress(...) 
+                        }
+                    } else {
+                        // 未知狀態
+                        console.warn('[MiniRH] Unknown task status:', res);
+                    }
+                } catch (err: any) {
+                    console.error('[MiniRH] Polling error:', err);
+                    // 網絡錯誤不一定代表任務失敗，可以繼續重試，或者設計最大重試次數
+                }
+            };
+
+            // 立即檢查一次，然後每 2 秒檢查一次
+            checkStatus();
+            intervalId = setInterval(checkStatus, 2000);
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [taskId, step, autoSaveResults, onTaskSuccess]);
+
     // 解碼圖片
     const handleDecode = useCallback(async (url: string, index: number) => {
         const electronAPI = (window as any).electronAPI;
         if (!electronAPI?.decodeImage) return;
 
         try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            const result = await electronAPI.decodeImage(Array.from(new Uint8Array(arrayBuffer)), `image_${index}.png`);
+            // [Fix] 優先使用已保存的本地檔案進行解碼 (避免縮圖或 fetch 問題)
+            const localFilePath = savedPaths[index];
+            let result;
 
-            if (result?.success && result.outputPath) {
-                setDecodedResults(prev => new Map(prev).set(index, result.outputPath));
+            if (localFilePath) {
+                console.log('[MiniRH] Decoding from local file:', localFilePath);
+                // 傳遞 filePath 给後端，buffer 設為 null
+                result = await electronAPI.decodeImage(null, `image_${index}.png`, localFilePath);
+            } else {
+                console.log('[MiniRH] Decoding from URL:', url);
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                // 舊方式: 傳 buffer
+                result = await electronAPI.decodeImage(Array.from(new Uint8Array(arrayBuffer)), `image_${index}.png`);
             }
-        } catch (err) {
+
+            if (result?.success && result.localUrl) {
+                setDecodedResults(prev => new Map(prev).set(index, result.localUrl));
+            } else if (result?.error) {
+                console.error('Decode returned error:', result.error);
+                alert(`Decode Failed: ${result.error}`); // [Fix] Alert user
+            }
+        } catch (err: any) {
             console.error('Decode failed:', err);
+            alert(`Decode Error: ${err.message}`); // [Fix] Alert user
         }
-    }, []);
+    }, [savedPaths]);
 
     // 下載 - 使用 Electron IPC 避免跨域問題
     const handleDownload = useCallback(async (url: string, index?: number) => {
@@ -431,7 +550,7 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
                     <input
                         type="text"
                         value={webappId}
-                        onChange={e => setWebappId(e.target.value)}
+                        onChange={e => handleWebappIdChange(e.target.value)}
                         placeholder={getTranslation('labels.inputPlaceholder')}
                         className="flex-1 px-2 py-1.5 text-[10px] bg-white/5 border border-white/10 rounded focus:outline-none focus:border-purple-500/50"
                     />
@@ -607,6 +726,24 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
                         ) : (
                             <p className="text-[9px] text-center text-yellow-400">{getTranslation('labels.saving')}</p>
                         )}
+
+                        {/* 批量解碼按鈕 */}
+                        {result.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    result.forEach((output, idx) => {
+                                        if (!decodedResults.has(idx)) {
+                                            handleDecode(output.fileUrl, idx);
+                                        }
+                                    });
+                                }}
+                                className="w-full py-1.5 text-[10px] bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-300 rounded flex items-center justify-center gap-1"
+                            >
+                                <Wand2 size={12} />
+                                <span>{getTranslation('labels.decode')}</span>
+                            </button>
+                        )}
+
                         <button
                             onClick={() => { setResult(null); setDecodedResults(new Map()); setSavedPaths([]); }}
                             className="w-full py-1.5 text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 rounded"

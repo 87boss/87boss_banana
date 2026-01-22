@@ -14,6 +14,9 @@ interface SettingsModalProps {
   // 自动保存
   autoSaveEnabled: boolean;
   onAutoSaveToggle: (enabled: boolean) => void;
+  // 自动解码
+  autoDecodeEnabled: boolean;
+  onAutoDecodeToggle: (enabled: boolean) => void;
 }
 
 type ApiMode = 'local-thirdparty' | 'local-gemini';
@@ -27,6 +30,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onGeminiApiKeySave,
   autoSaveEnabled,
   onAutoSaveToggle,
+  autoDecodeEnabled,
+  onAutoDecodeToggle,
 }) => {
   const { themeName, setTheme, allThemes, theme } = useTheme();
   const isLight = themeName === 'light';
@@ -51,6 +56,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     setLocalGeminiKey(geminiApiKey || '');
   }, [geminiApiKey]);
+
+  // Sync RunningHub Config from Backend
+  useEffect(() => {
+    if ((window as any).electronAPI?.runningHub?.getConfig) {
+      (window as any).electronAPI.runningHub.getConfig().then((res: any) => {
+        if (res.success && res.data && res.data.apiKey) {
+          localStorage.setItem('rh_api_key', res.data.apiKey);
+          // Force update input if modal is open (optional, but good for consistency)
+          const input = document.getElementById('rh-api-key-input') as HTMLInputElement;
+          if (input) input.value = res.data.apiKey;
+        }
+      });
+    }
+  }, [isOpen]); // Reload when opened
 
   if (!isOpen) return null;
 
@@ -215,7 +234,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => {
                       const input = document.getElementById('rh-api-key-input') as HTMLInputElement;
                       if (input) {
-                        localStorage.setItem('rh_api_key', input.value);
+                        const val = input.value.trim();
+                        localStorage.setItem('rh_api_key', val);
+                        if ((window as any).electronAPI?.runningHub?.saveConfig) {
+                          (window as any).electronAPI.runningHub.saveConfig({ apiKey: val });
+                        }
                         setSaveSuccessMessage('RunningHub API Key 已保存 ✅');
                         setTimeout(() => setSaveSuccessMessage(null), 2000);
                       }
@@ -301,6 +324,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <div className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all transition-colors"
                   style={{ background: autoSaveEnabled ? colors.primary : colors.bgSecondary }}></div>
+              </label>
+            </div>
+
+            {/* 自動解碼 */}
+            <div className="flex items-center justify-between p-3 rounded-xl border"
+              style={{ background: colors.bgTertiary, borderColor: colors.border }}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⚡</span>
+                <div>
+                  <h4 className="text-sm font-medium" style={{ color: colors.textPrimary }}>自動解碼</h4>
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>任務完成時自動解碼 SS_tools 編碼的圖片</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={autoDecodeEnabled}
+                  onChange={(e) => onAutoDecodeToggle(e.target.checked)}
+                />
+                <div className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all transition-colors"
+                  style={{ background: autoDecodeEnabled ? colors.primary : colors.bgSecondary }}></div>
               </label>
             </div>
 

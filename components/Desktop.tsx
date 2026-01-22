@@ -131,6 +131,25 @@ export const Desktop: React.FC<DesktopProps> = ({
   // 更新相關狀態
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'updating' | 'success' | 'error'>('idle');
   const [updateError, setUpdateError] = useState<string>('');
+  const uploadInputRef = useRef<HTMLInputElement>(null); // Hidden input for upload
+
+  // 处理上传点击
+  const handleUploadClick = () => {
+    setContextMenu(null);
+    uploadInputRef.current?.click();
+  };
+
+  // 处理文件选择
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        await addImageToDesktop(files[i]);
+      }
+    }
+    // Reset input
+    if (uploadInputRef.current) uploadInputRef.current.value = '';
+  };
 
   const handleCheckUpdate = async () => {
     if (updateStatus !== 'idle' && updateStatus !== 'success' && updateStatus !== 'error') return;
@@ -1052,6 +1071,50 @@ export const Desktop: React.FC<DesktopProps> = ({
     return item as DesktopImageItem;
   })();
 
+  // 解码图片 (调用 local API)
+  const handleDecodeImage = async (imageItem: DesktopImageItem) => {
+    const url = imageItem.imageUrl;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${imageItem.name}-decoded-${timestamp}.png`;
+
+    try {
+      // [Optimized] Pass the image path/URL directly to backend to avoid buffer corruption issues
+      // The backend will resolve the local path from the URL
+      if ((window as any).electronAPI?.decodeImage) {
+        // Pass null buffer, filename, and the imageUrl as filePath
+        const result = await (window as any).electronAPI.decodeImage(null, filename, url);
+
+        if (result.success && result.localUrl) {
+          // Success: Add new item to desktop
+          const newId = generateId();
+          const pos = imageItem.position;
+          // Shift position slightly (offset 20px)
+          const newPos = { x: pos.x + 20, y: pos.y + 20 };
+
+          const newItem: DesktopImageItem = {
+            id: newId,
+            type: 'image',
+            name: result.fileName.replace('.png', '').replace('_decoded', ''),
+            imageUrl: result.localUrl,
+            position: newPos,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+
+          onItemsChange([...items, newItem]);
+        } else {
+          const errMsg = result.error || 'Unknown Error';
+          alert(`解碼失敗: ${errMsg}`);
+        }
+      } else {
+        alert('解碼功能未就緒 (API Missing)');
+      }
+    } catch (e: any) {
+      console.error('Decode failed:', e);
+      alert(`解碼出錯: ${e.message}`);
+    }
+  };
+
   // 下载图片
   const handleDownloadImage = async (imageItem: DesktopImageItem) => {
     const url = imageItem.imageUrl;
@@ -1369,6 +1432,14 @@ export const Desktop: React.FC<DesktopProps> = ({
         }}
       />
 
+      <input
+        type="file"
+        ref={uploadInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+        accept="image/*"
+        multiple
+      />
       {/* 文件拖放提示遮罩 */}
       {isFileDragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -1901,6 +1972,15 @@ export const Desktop: React.FC<DesktopProps> = ({
           {!contextMenu.itemId && (
             <>
               <button
+                onClick={handleUploadClick}
+                className="w-full px-3 py-2 text-left text-[12px] hover:bg-blue-500/10 transition-colors flex items-center gap-2"
+                style={{ color: theme.colors.textPrimary }}
+              >
+                <UploadIcon className="w-4 h-4 text-blue-500" />
+                <span>上傳照片</span>
+              </button>
+              <div className="h-px my-1" style={{ background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }} />
+              <button
                 onClick={handleCreateFolder}
                 className="w-full px-3 py-2 text-left text-[12px] hover:bg-blue-500/10 transition-colors flex items-center gap-2"
                 style={{ color: theme.colors.textPrimary }}
@@ -2046,6 +2126,19 @@ export const Desktop: React.FC<DesktopProps> = ({
                   >
                     <EyeIcon className="w-4 h-4 text-cyan-400" />
                     <span>预览</span>
+                  </button>
+                  {/* 解码 - 黄色 */}
+                  <button
+                    onClick={() => {
+                      const item = items.find(i => i.id === contextMenu.itemId) as DesktopImageItem;
+                      if (item) handleDecodeImage(item);
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-[12px] hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    <Zap className="w-4 h-4 text-yellow-500" />
+                    <span>圖片解密</span>
                   </button>
                   {/* 编辑 - 紫色 */}
                   {onImageEditAgain && (

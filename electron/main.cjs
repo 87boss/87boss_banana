@@ -50,6 +50,19 @@ let mainWindow = null;
 let splashWindow = null;
 let backendServer = null;
 
+// Helper: Get Base Output Path
+// Helper: Get Base Output Path
+function getBaseOutputPath() {
+  // [Force] Enforce output to project root "output" folder
+  // Verify if we are running from the project root by checking package.json presence or similar
+  // But for this user request, we default to CWD/output.
+  const projectOutputPath = path.join(process.cwd(), 'output');
+  if (!fs.existsSync(projectOutputPath)) {
+    try { fs.mkdirSync(projectOutputPath, { recursive: true }); } catch (e) { }
+  }
+  return projectOutputPath;
+}
+
 // 版本更新內容說明（業務向）
 const RELEASE_NOTES = {
   '1.4.1': {
@@ -1609,8 +1622,8 @@ ipcMain.handle('rh-save-file', async (event, { url, name, subDir }) => {
   try {
     if (!url || !name) throw new Error('Missing url or name');
 
-    // Determine output path using the global user data path (consistent with backend)
-    let outputDir = path.join(global.userDataPath || app.getPath('userData'), 'output');
+    // Determine output path using centralized logic
+    let outputDir = getBaseOutputPath();
 
     if (subDir) outputDir = path.join(outputDir, subDir);
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -1651,96 +1664,15 @@ ipcMain.handle('rh-save-file', async (event, { url, name, subDir }) => {
       });
     }
 
-    throw new Error('Unsupported URL format');
-  } catch (error) {
-    console.error('RH Save File Error:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: 'Unsupported URL protocol' };
+  } catch (err) {
+    console.error('RH Save File Error:', err);
+    return { success: false, error: err.message };
   }
 });
 
 // 4. Decode Image - using duck_decoder.exe for encoded images
-ipcMain.handle('rh-decode-image', async (event, { buffer, fileName }) => {
-  try {
-    const { execFile } = require('child_process');
-    const os = require('os');
-    const isDev = !app.isPackaged;
-
-    // 獲取 decoder 路徑
-    let decoderPath;
-    if (isDev) {
-      const devPath1 = path.join(process.cwd(), 'extraResources/duck_decoder.exe');
-      const devPath2 = path.join(__dirname, '../extraResources/duck_decoder.exe');
-
-      if (fs.existsSync(devPath1)) {
-        decoderPath = devPath1;
-      } else {
-        decoderPath = devPath2;
-      }
-    } else {
-      decoderPath = path.join(process.resourcesPath, 'extraResources/duck_decoder.exe');
-    }
-
-    console.log('[decode-image] isDev:', isDev);
-    console.log('[decode-image] decoderPath:', decoderPath);
-    console.log('[decode-image] exists:', fs.existsSync(decoderPath));
-
-    // 檢查 decoder 是否存在
-    if (!fs.existsSync(decoderPath)) {
-      return { success: false, error: '解碼器不存在' };
-    }
-
-    // 創建臨時文件
-    const tempDir = os.tmpdir();
-    const inputPath = path.join(tempDir, `decode_input_${Date.now()}_${fileName}`);
-    const outputPath = path.join(tempDir, `decode_output_${Date.now()}_${fileName}`);
-
-    // 寫入輸入文件 - buffer 可能是 Array 或 Uint8Array
-    const inputBuffer = Buffer.from(buffer);
-    fs.writeFileSync(inputPath, inputBuffer);
-
-    // 執行解碼
-    await new Promise((resolve, reject) => {
-      const options = {
-        timeout: 60000,
-        env: {
-          ...process.env,
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUTF8: '1'
-        }
-      };
-      execFile(decoderPath, ['--duck', inputPath, '--out', outputPath], options, (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr || error.message));
-        } else {
-          resolve(stdout);
-        }
-      });
-    });
-
-    // 檢查輸出文件
-    if (!fs.existsSync(outputPath)) {
-      fs.unlinkSync(inputPath);
-      return { success: false, error: '解碼失敗：未生成輸出文件' };
-    }
-
-    // 返回 base64 數據
-    const outputData = fs.readFileSync(outputPath);
-    const base64 = outputData.toString('base64');
-    const mimeType = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-
-    // 清理臨時文件
-    fs.unlinkSync(inputPath);
-    fs.unlinkSync(outputPath);
-
-    return {
-      success: true,
-      outputPath: `data:${mimeType};base64,${base64}`
-    };
-  } catch (error) {
-    console.error('[decode-image] Error:', error);
-    return { success: false, error: error.message };
-  }
-});
+// Duplicate legacy handler removed. See correct implementation below around line 2100.
 
 // ============ File Explorer IPC ============
 // (chokidar is loaded at top of file)
@@ -1991,8 +1923,7 @@ ipcMain.handle('fs:copy-path', async (event, filePath) => {
 ipcMain.handle('fs:copy-to-desktop', async (event, filePath) => {
   try {
     const fileName = path.basename(filePath);
-    const storagePath = store.get('storagePath', app.getPath('userData'));
-    const outputDir = path.join(storagePath, 'output');
+    const outputDir = getBaseOutputPath();
 
     // 確保 output 目錄存在
     if (!fs.existsSync(outputDir)) {
@@ -2024,8 +1955,7 @@ ipcMain.handle('fs:copy-to-desktop', async (event, filePath) => {
 // 取得預設路徑 (output 資料夾)
 ipcMain.handle('fs:get-default-path', async () => {
   try {
-    const storagePath = store.get('storagePath', app.getPath('userData'));
-    const outputPath = path.join(storagePath, 'output');
+    const outputPath = getBaseOutputPath();
 
     // 確保目錄存在
     if (!fs.existsSync(outputPath)) {
@@ -2036,5 +1966,191 @@ ipcMain.handle('fs:get-default-path', async () => {
   } catch (error) {
     console.error('[fs:get-default-path] Error:', error);
     return { success: false, error: error.message };
+  }
+});
+// RunningHub 圖片解碼
+ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) => {
+  try {
+    if (!buffer && !filePath) throw new Error('Buffer and filePath are empty');
+
+    // 1. 確定路徑
+    // Decoder 執行檔路徑 (生產環境: resource/extraResources, 開發: extraResources)
+    const extraResourcesPath = CONFIG.isDev
+      ? path.join(__dirname, '..', 'extraResources')
+      : path.join(process.resourcesPath, 'extraResources');
+
+    const decoderPath = path.join(extraResourcesPath, 'duck_decoder.exe');
+
+    // 檢查 decoder 是否存在
+    if (!fs.existsSync(decoderPath)) {
+      console.error('Decoder not found at:', decoderPath);
+      throw new Error(`Decoder not found: ${decoderPath}`);
+    }
+
+    // 確定輸出路徑
+    // 確定輸出路徑
+    const outputDir = getBaseOutputPath();
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 2. 準備輸入檔案
+    let tempInputPath = '';
+    let isTempFile = true;
+
+    // [New] Resolve path if it's a URL-like string or relative path
+    let resolvedPath = filePath;
+    if (typeof filePath === 'string') {
+      try {
+        if (filePath.startsWith('file://')) {
+          resolvedPath = require('url').fileURLToPath(filePath);
+        } else if (filePath.includes('/files/output/')) {
+          // Map http://.../files/output/xxx.png -> <outputDir>/xxx.png
+          // This handles both relative paths and full URLs
+          const parts = filePath.split('/files/output/');
+          if (parts.length > 1) {
+            // split gives us everything after /files/output/
+            const relName = decodeURIComponent(parts.pop());
+            resolvedPath = path.join(getBaseOutputPath(), relName);
+          }
+        }
+        // else: assume it is already an absolute path if it looks like one, or leave as is
+      } catch (e) {
+        console.warn('[Decoder] Path resolution failed:', e);
+      }
+    }
+
+    const isDataURL = typeof filePath === 'string' && (filePath.trim().startsWith('data:') || filePath.includes(';base64,'));
+
+    if (isDataURL) {
+      const base64Data = filePath.split(';base64,').pop();
+      tempInputPath = path.join(outputDir, `temp_b64_${Date.now()}.png`);
+      fs.writeFileSync(tempInputPath, base64Data, { encoding: 'base64' });
+      isTempFile = true;
+      console.log('[Decoder] Created input from base64 string:', tempInputPath);
+    } else if (resolvedPath && fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+      tempInputPath = resolvedPath;
+      isTempFile = false;
+      console.log('[Decoder] Using existing file:', tempInputPath);
+    } else {
+      // Fallback: Create temp file from buffer if file not found
+      if (resolvedPath) {
+        console.warn('[Decoder] File path provided but not found or not a file:', resolvedPath);
+      }
+
+      if (buffer) {
+        tempInputPath = path.join(outputDir, `temp_buf_${Date.now()}.png`);
+        fs.writeFileSync(tempInputPath, Buffer.from(buffer));
+        isTempFile = true;
+        console.log('[Decoder] Created temp input from buffer:', tempInputPath);
+      } else if (typeof filePath === 'string' && !filePath.startsWith('data:')) {
+        // Last resort: check if it's just a filename in the output directory
+        const justFileName = path.basename(filePath);
+        const fallbackPath = path.join(getBaseOutputPath(), justFileName);
+        if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).isFile()) {
+          tempInputPath = fallbackPath;
+          isTempFile = false;
+          console.log('[Decoder] Found file via fallback basename matching:', tempInputPath);
+        } else {
+          throw new Error(`No input source. File not found: ${resolvedPath || filePath}`);
+        }
+      } else {
+        throw new Error(`No input source. File not found: ${resolvedPath || filePath}`);
+      }
+    }
+
+    // 3. 執行解碼器
+    // usage: duck_decoder.exe --duck <input> --out <output>
+    const inputBaseName = path.basename(tempInputPath, path.extname(tempInputPath));
+    const tempOutputPath = path.join(outputDir, `temp_decoded_${Date.now()}_${inputBaseName}.png`);
+    const { execFile } = require('child_process');
+
+    console.log('[Decoder] Running:', decoderPath);
+    console.log('[Decoder] Args:', ['--duck', tempInputPath, '--out', tempOutputPath]);
+
+    await new Promise((resolve, reject) => {
+      const options = {
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
+      };
+
+      execFile(decoderPath, ['--duck', tempInputPath, '--out', tempOutputPath], options, (error, stdout, stderr) => {
+        if (error) {
+          console.warn('[Decoder] Exec warning:', error);
+          const errStr = stderr || stdout || error.message || '';
+          console.warn('[Decoder] Output:', errStr);
+
+          // Check for specific known errors
+          if (errStr.includes('ValueError') || errStr.includes('Payload length invalid')) {
+            reject(new Error('圖片未加密或格式不正確 (Not an encrypted image)'));
+          } else {
+            // Return the raw error if unknown, stripping the "Failed to execute script" prefix if possible for clarity, 
+            // but keeping it simple for now or using a generic fallback.
+            // Actually, letting it fail here allows catching it below.
+            reject(new Error(errStr || 'Decoder failed with unknown error'));
+          }
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+
+    // 4. 尋找輸出檔案 (Updated to use tempOutputPath)
+    const expectedOutputPath = tempOutputPath;
+
+    if (fs.existsSync(expectedOutputPath)) {
+      // 重命名為最終檔案名
+      let finalPath = expectedOutputPath;
+      let finalName = path.basename(expectedOutputPath);
+
+      if (fileName) {
+        const safeName = fileName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\-_.]/g, '_');
+        finalName = safeName.replace('.png', '_decoded.png');
+        finalPath = path.join(outputDir, finalName);
+
+        if (fs.existsSync(finalPath)) {
+          try { fs.unlinkSync(finalPath); } catch (e) { console.warn('[Decoder] Target busy, will try rename directly'); }
+        }
+
+        // Retry rename to handle Windows EBUSY
+        let renamed = false;
+        for (let i = 0; i < 5; i++) {
+          try {
+            fs.renameSync(expectedOutputPath, finalPath);
+            renamed = true;
+            break;
+          } catch (e) {
+            if (e.code === 'EBUSY' && i < 4) {
+              console.log(`[Decoder] File busy, retry ${i + 1}...`);
+              await new Promise(r => setTimeout(r, 200 * (i + 1)));
+            } else {
+              throw e;
+            }
+          }
+        }
+        if (!renamed) throw new Error('Rename failed after retries');
+      }
+
+      // 只有在是臨時檔案時才刪除輸入
+      if (isTempFile) {
+        try { fs.unlinkSync(tempInputPath); } catch (e) { }
+      }
+
+      console.log('[Decoder] Success:', finalPath);
+
+      return {
+        success: true,
+        filePath: finalPath,
+        localUrl: `/files/output/${finalName}`,
+        fileName: finalName
+      };
+    } else {
+      throw new Error('Decoder executed but no output file found. Check if image is encrypted.');
+    }
+
+  } catch (error) {
+    console.error('[rh-decode-image] Error:', error);
+    // Ensure error is a string
+    const errorMsg = error.message || String(error) || 'Unknown Error';
+    return { success: false, error: errorMsg };
   }
 });

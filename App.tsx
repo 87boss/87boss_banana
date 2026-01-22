@@ -1807,6 +1807,7 @@ const App: React.FC = () => {
   const [batchCount, setBatchCount] = useState<number>(1); // 批量生成数量（1/2/4张）
 
   const [autoSave, setAutoSave] = useState(false);
+  const [autoDecode, setAutoDecode] = useState(false);
 
   // 贞贞API配置状态
   const [thirdPartyApiConfig, setThirdPartyApiConfig] = useState<ThirdPartyApiConfig>({
@@ -2058,6 +2059,11 @@ const App: React.FC = () => {
     if (savedAutoSave) {
       setAutoSave(JSON.parse(savedAutoSave));
     }
+
+    const savedAutoDecode = localStorage.getItem('auto_decode_enabled');
+    if (savedAutoDecode) {
+      setAutoDecode(JSON.parse(savedAutoDecode));
+    }
   }, []);
 
   // 后端健康检查 - 定时检测连接状态
@@ -2277,6 +2283,11 @@ const App: React.FC = () => {
   const handleAutoSaveToggle = (enabled: boolean) => {
     setAutoSave(enabled);
     localStorage.setItem('auto_save_enabled', JSON.stringify(enabled));
+  };
+
+  const handleAutoDecodeToggle = (enabled: boolean) => {
+    setAutoDecode(enabled);
+    localStorage.setItem('auto_decode_enabled', JSON.stringify(enabled));
   };
 
   // 贞贞API配置变更处理
@@ -3730,13 +3741,10 @@ const App: React.FC = () => {
   // RunningHub 任務成功回調
   const handleRunningHubSuccess = useCallback((outputs: any[]) => {
     if (outputs && outputs.length > 0) {
-      // 設置生成結果以顯示彈窗
-      setGeneratedContent({ imageUrl: outputs[0].fileUrl });
-      setStatus(ApiStatus.Success);
-
-      // 刷新數據（確保桌面縮略圖更新）
-      // [Config] 關閉自動刷新，避免重置其他正在進行的任務狀態
-      // loadDataFromLocal();
+      // [UI Refinement] 移除生成結果彈窗，改為靜默處理
+      // setGeneratedContent({ imageUrl: outputs[0].fileUrl });
+      // setStatus(ApiStatus.Success);
+      console.log('[App] RunningHub task success, results are on desktop');
     }
   }, []);
 
@@ -3867,9 +3875,11 @@ const App: React.FC = () => {
                   isLoading: true,
                 };
 
-                const newItems = [...desktopItems, placeholder];
-                setDesktopItems(newItems);
-                safeDesktopSave(newItems); // 確保立即保存狀態
+                setDesktopItems(prev => {
+                  const items = [...prev, placeholder];
+                  safeDesktopSave(items);
+                  return items;
+                });
 
                 // 2. 啟動後台監控 (不阻塞 UI)
                 const monitorTask = async () => {
@@ -3885,40 +3895,163 @@ const App: React.FC = () => {
                       try {
                         const response = await queryTaskOutputs(savedApiKey, taskId);
                         if (response.code === API_CODE.SUCCESS) {
-                          const outputs = Array.isArray(response.data)
-                            ? response.data.map((item: any) => ({ fileUrl: item.fileUrl || item.url || item }))
-                            : [];
+                          // [Fix] 使用與 runningHubTaskStore 相同的標準化邏輯
+                          const rawData = response.data;
+                          let outputs: { fileUrl: string }[] = [];
+
+                          if (Array.isArray(rawData)) {
+                            outputs = rawData.map((item: any) => {
+                              if (item && typeof item.fileUrl === 'string') {
+                                return { fileUrl: item.fileUrl };
+                              }
+                              if (typeof item === 'string') {
+                                return { fileUrl: item };
+                              }
+                              if (item && typeof item.url === 'string') {
+                                return { fileUrl: item.url };
+                              }
+                              return null;
+                            }).filter(Boolean) as { fileUrl: string }[];
+                          } else if (rawData && typeof rawData === 'object') {
+                            if (Array.isArray(rawData.outputs)) {
+                              outputs = rawData.outputs.map((item: any) => {
+                                if (typeof item === 'string') return { fileUrl: item };
+                                if (item && typeof item.fileUrl === 'string') return { fileUrl: item.fileUrl };
+                                if (item && typeof item.url === 'string') return { fileUrl: item.url };
+                                return null;
+                              }).filter(Boolean) as { fileUrl: string }[];
+                            } else if (typeof rawData.fileUrl === 'string') {
+                              outputs = [{ fileUrl: rawData.fileUrl }];
+                            }
+                          }
+
+                          // [Debug] 查看 outputs 實際內容
+                          console.log('[MiniRH Debug] rawData:', JSON.stringify(rawData, null, 2));
+                          console.log('[MiniRH Debug] normalized outputs.length:', outputs.length);
 
                           if (outputs.length > 0) {
-                            const imageUrl = outputs[0].fileUrl;
 
-                            // 下載並保存到歷史
-                            const saveRes = await saveToHistory(imageUrl, promptValue, true);
+                            // [Fix] 處理所有輸出圖片，不只是第一張
+                            // 使用網格系統計算位置
+                            const gridSize = 100;
+                            const maxCols = 10;
+
+                            // 計算空閒位置的輔助函數
+                            const findFreePositionInItems = (items: DesktopItem[], excludeId?: string) => {
+                              const occupiedPositions = new Set(
+                                items
+                                  .filter(item => {
+                                    if (excludeId && item.id === excludeId) return false;
+                                    const isInFolder = items.some(
+                                      other => other.type === 'folder' && (other as any).itemIds?.includes(item.id)
+                                    );
+                                    return !isInFolder;
+                                  })
+                                  .map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
+                              );
+
+                              for (let row = 0; row < 100; row++) {
+                                for (let col = 0; col < maxCols; col++) {
+                                  const key = `${col},${row}`;
+                                  if (!occupiedPositions.has(key)) {
+                                    return { x: col * gridSize, y: row * gridSize };
+                                  }
+                                }
+                              }
+                              return { x: 0, y: 0 };
+                            };
+
+                            for (let i = 0; i < outputs.length; i++) {
+                              const imageUrl = outputs[i].fileUrl;
+
+                              // 嘗試保存到歷史，但不阻塞桌面項目創建
+                              let saveRes: any = null;
+                              try {
+                                saveRes = await saveToHistory(imageUrl, promptValue, true);
+                              } catch (saveErr) {
+                                console.warn(`[MiniRH] saveToHistory failed for image ${i}:`, saveErr);
+                              }
+
+                              if (i === 0) {
+                                // 更新原始佔位符為第一張圖片
+                                setDesktopItems(current => current.map(item =>
+                                  item.id === placeholder.id
+                                    ? { ...item, imageUrl: saveRes?.localImageUrl || imageUrl, thumbnailUrl: saveRes?.localThumbnailUrl, isLoading: false, historyId: saveRes?.historyId }
+                                    : item
+                                ));
+                              } else {
+                                // 使用函數式更新，在最新狀態上計算空閒位置
+                                const newItem: DesktopImageItem = {
+                                  id: `rh-${taskId}-${i}`,
+                                  type: 'image',
+                                  name: `RH: ${promptValue.slice(0, 10)}... (${i + 1})`,
+                                  position: { x: 0, y: 0 }, // 暫時，會在 setDesktopItems 內更新
+                                  createdAt: Date.now(),
+                                  updatedAt: Date.now(),
+                                  imageUrl: saveRes?.localImageUrl || imageUrl,
+                                  thumbnailUrl: saveRes?.localThumbnailUrl,
+                                  prompt: promptValue,
+                                  model: 'RunningHub',
+                                  isThirdParty: true,
+                                  isLoading: false,
+                                  historyId: saveRes?.historyId,
+                                };
+
+                                setDesktopItems(current => {
+                                  const freePos = findFreePositionInItems(current);
+                                  return [...current, { ...newItem, position: freePos }];
+                                });
+                              }
+
+                              // 更新歷史記錄
+                              if (saveRes?.historyId) {
+                                setGenerationHistory(prev => [
+                                  { id: saveRes.historyId, imageUrl: saveRes.localImageUrl || imageUrl, prompt: promptValue, createdAt: new Date().toISOString() },
+                                  ...prev
+                                ]);
+                              }
+
+                              // 自動保存 (由後端 saveToHistory 處理，不再呼叫瀏覽器下載)
+
+                              // 自動解碼 (RunningHub 任務輸出固定自動嘗試，且靜默失敗)
+                              if (window.electronAPI?.runningHub?.decodeImage) {
+                                try {
+                                  fetch(saveRes?.localImageUrl || imageUrl)
+                                    .then(res => res.arrayBuffer())
+                                    .then(buffer => {
+                                      const time = Date.now();
+                                      const fileName = `decoded-${time}.png`;
+
+                                      window.electronAPI.runningHub.decodeImage(buffer, fileName)
+                                        .then(result => {
+                                          if (result.success && result.localUrl) {
+                                            console.log('[AutoDecode] Success:', result.filePath);
+                                            setDesktopItems(current => {
+                                              const freePos = findNextFreePosition();
+                                              const newItem: DesktopImageItem = {
+                                                id: `decoded-${time}-${Math.random().toString(36).substring(7)}`,
+                                                type: 'image',
+                                                name: result.fileName.replace('.png', ''),
+                                                imageUrl: result.localUrl,
+                                                position: freePos,
+                                                createdAt: time,
+                                                updatedAt: time,
+                                                isLoading: false
+                                              };
+                                              const newItems = [...current, newItem];
+                                              safeDesktopSave(newItems);
+                                              return newItems;
+                                            });
+                                          }
+                                        })
+                                        .catch(() => { /* 靜默失敗 */ });
+                                    });
+                                } catch (e) { /* 靜默失敗 */ }
+                              }
+                            }
 
                             // 觸發成功回調
                             handleRunningHubSuccess(outputs);
-
-                            // 更新桌面項
-                            setDesktopItems(current => current.map(item =>
-                              item.id === placeholder.id
-                                ? { ...item, imageUrl: saveRes?.localImageUrl || imageUrl, thumbnailUrl: saveRes?.localThumbnailUrl, isLoading: false, historyId: saveRes?.historyId }
-                                : item
-                            ));
-
-                            // [Fix] 不再調用 loadDataFromLocal()，避免重置其他進行中的任務
-                            // 如果需要同步歷史記錄，只更新 history 狀態
-                            if (saveRes?.historyId) {
-                              setGenerationHistory(prev => [
-                                { id: saveRes.historyId, imageUrl: saveRes.localImageUrl || imageUrl, prompt: promptValue, createdAt: new Date().toISOString() },
-                                ...prev
-                              ]);
-                            }
-
-                            // [Fix] 檢查自動保存設定，如果開啟則觸發額外的下載
-                            const isAutoSaveEnabled = localStorage.getItem('auto_save_enabled') === 'true';
-                            if (isAutoSaveEnabled) {
-                              downloadImage(saveRes?.localImageUrl || imageUrl);
-                            }
                           }
                         } else if (response.code === API_CODE.FAILED) {
                           throw new Error(response.msg || 'Task Failed');
@@ -4116,6 +4249,8 @@ const App: React.FC = () => {
         onGeminiApiKeySave={handleApiKeySave}
         autoSaveEnabled={autoSave}
         onAutoSaveToggle={handleAutoSaveToggle}
+        autoDecodeEnabled={autoDecode}
+        onAutoDecodeToggle={handleAutoDecodeToggle}
       />
 
       {/* 加载小窗 */}
