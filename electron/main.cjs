@@ -1140,7 +1140,7 @@ function startBackendServer() {
     console.log('後端路徑:', backendPath);
 
     // 檢查檔案是否存在
-    const fs = require('fs');
+    // 檢查檔案是否存在
     if (!fs.existsSync(backendPath)) {
       console.error('❌ 後端檔案不存在:', backendPath);
       // 嘗試其他可能的路徑
