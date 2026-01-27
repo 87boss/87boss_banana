@@ -1706,7 +1706,8 @@ export const Desktop: React.FC<DesktopProps> = ({
                       // 缩略图加载失败，回退到原图
                       const target = e.target as HTMLImageElement;
                       const originalUrl = normalizeImageUrl((item as DesktopImageItem).imageUrl);
-                      if (target.src !== originalUrl) {
+                      // FIX: Use endsWith to compare absolute target.src with relative originalUrl
+                      if (originalUrl && !target.src.endsWith(originalUrl)) {
                         target.src = originalUrl;
                       } else {
                         // 原图也失败，显示占位图
@@ -1734,7 +1735,8 @@ export const Desktop: React.FC<DesktopProps> = ({
                           // 缩略图加载失败，回退到原图
                           const target = e.target as HTMLImageElement;
                           const originalUrl = normalizeImageUrl(img.imageUrl);
-                          if (target.src !== originalUrl) {
+                          // FIX: Use endsWith to compare absolute target.src with relative originalUrl
+                          if (originalUrl && !target.src.endsWith(originalUrl)) {
                             target.src = originalUrl;
                           }
                         }}

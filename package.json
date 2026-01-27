@@ -3,14 +3,14 @@
   "description": "87Boss AI RunningHub Client",
   "author": "RunningHub",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.8",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8767 && electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"cd backend-nodejs && npm start\" \"wait-on http://localhost:8767 && electron .\"",
     "electron:build": "vite build && electron-builder",
     "package": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64",
     "upload": "node release-uploader/upload.cjs"

@@ -83,8 +83,8 @@ function getFilesToUpload(config, version) {
   // 只上传当前版本的必要文件（安装包 + 自动更新配置）
   const targetFiles = [
     'latest.yml',
-    `PenguinMagic Setup ${version}.exe`,
-    `PenguinMagic Setup ${version}.exe.blockmap`
+    `RunningHub-AI-${version}-Setup.exe`,
+    `RunningHub-AI-${version}-Setup.exe.blockmap`
   ];
 
   for (const target of targetFiles) {
@@ -160,11 +160,11 @@ async function uploadViaSFTP(files, config) {
       const fileSize = formatSize(fs.statSync(localPath).size);
 
       log(`📤 上传: ${file} (${fileSize})`, colors.cyan);
-      
+
       const startTime = Date.now();
       await sftp.put(localPath, remotePath);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      
+
       logSuccess(`完成 → ${remotePath} (${duration}s)`);
       uploadedCount++;
     }
@@ -174,7 +174,7 @@ async function uploadViaSFTP(files, config) {
 
   } catch (err) {
     logError(`SFTP 错误: ${err.message}`);
-    try { await sftp.end(); } catch (e) {}
+    try { await sftp.end(); } catch (e) { }
     return 0;
   }
 }
@@ -218,11 +218,11 @@ async function uploadViaFTP(files, config) {
       const fileSize = formatSize(fs.statSync(localPath).size);
 
       log(`📤 上传: ${file} (${fileSize})`, colors.cyan);
-      
+
       const startTime = Date.now();
       await client.uploadFrom(localPath, remotePath);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      
+
       logSuccess(`完成 (${duration}s)`);
       uploadedCount++;
     }

@@ -52,11 +52,12 @@ let backendServer = null;
 
 // Helper: Get Base Output Path
 // Helper: Get Base Output Path
+// Helper: Get Base Output Path
 function getBaseOutputPath() {
-  // [Force] Enforce output to project root "output" folder
-  // Verify if we are running from the project root by checking package.json presence or similar
-  // But for this user request, we default to CWD/output.
-  const projectOutputPath = path.join(process.cwd(), 'output');
+  // [Fix] Align with backend output path (UserData)
+  const base = global.userDataPath || app.getPath('userData');
+  const projectOutputPath = path.join(base, 'output');
+
   if (!fs.existsSync(projectOutputPath)) {
     try { fs.mkdirSync(projectOutputPath, { recursive: true }); } catch (e) { }
   }
@@ -357,7 +358,8 @@ let downloadProgressWindow = null;
 
 // 顯示發現新版本彈窗
 function showUpdateAvailableDialog(version, notes) {
-  const iconPath = getIconPath().replace(/\\/g, '/');
+  const iconPath = getIconPath() || '';
+  const iconPathUrl = iconPath.replace(/\\/g, '/');
   const contentLines = notes.split('\n').filter(line => line.trim());
   const contentHtml = contentLines.map(line => {
     if (line.startsWith('•')) {
@@ -1003,8 +1005,9 @@ function getIconPath() {
     }
 
     if (!iconPath) {
-      console.error('❌ 無法找到圖示檔案');
-      return null;
+      console.error('❌ 無法找到圖示檔案，使用預設路徑');
+      // 返回預設路徑，即使不存在也不會 crash
+      iconPath = path.join(process.resourcesPath, `icon.${iconExt}`);
     }
   }
 
@@ -1096,11 +1099,20 @@ function startBackendServer() {
     // [Fix] 統一資料路徑邏輯：
     // 1. 如果有自定義路徑，優先使用
     // 2. 開發模式下，默認為 CWD (專案根目錄)，保持與舊行為一致，方便調試
-    // 3. 生產模式下，默認為 userData 目錄 (標準做法)
-    // 4. 將來如果要支援便攜版，可在此處添加檢測 CWD 是否可寫的邏輯
-    let baseDataPath = app.getPath('userData');
+    // 3. 生產模式下，改為「我的文件/87Boss_RunningHub_Data」，方便用戶直接訪問 output
+    let baseDataPath = path.join(app.getPath('documents'), '87Boss_RunningHub_Data');
     if (CONFIG.isDev) {
       baseDataPath = process.cwd();
+    }
+
+    // 確保目錄存在
+    if (!CONFIG.isDev && !fs.existsSync(baseDataPath)) {
+      try {
+        fs.mkdirSync(baseDataPath, { recursive: true });
+      } catch (e) {
+        console.error('無法創建數據目錄，回退到 userData:', e);
+        baseDataPath = app.getPath('userData');
+      }
     }
 
     const userDataPath = storageConfig.customPath || baseDataPath;
@@ -1147,25 +1159,66 @@ function startBackendServer() {
       }
     }
 
-    try {
-      // 直接 require 後端模組（使用 Electron 內建的 Node.js）
-      const backendApp = require(backendPath);
+    // 使用 spawn 啟動後端進程（獨立的 Node.js 進程可以正確解析 node_modules）
+    const { spawn } = require('child_process');
+    const backendDir = path.dirname(path.dirname(backendPath)); // backend-nodejs 目錄
 
-      // 啟動伺服器
-      backendServer = backendApp.listen(CONFIG.backendPort, CONFIG.backendHost, () => {
+    console.log('🚀 以子進程方式啟動後端...');
+    console.log('後端目錄:', backendDir);
+
+    // 使用 Electron 內建的 node 執行後端
+    const nodeExe = process.execPath; // Electron 的可執行檔路徑
+
+    backendServer = spawn(nodeExe, [backendPath], {
+      cwd: backendDir,
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1', // 讓 Electron 以 Node.js 模式運行
+        NODE_ENV: 'production',
+        PORT: CONFIG.backendPort.toString(),
+        HOST: CONFIG.backendHost,
+        IS_ELECTRON: 'true',
+        IS_ELECTRON: 'true',
+        USER_DATA_PATH: userDataPath,
+        RESOURCES_PATH: process.resourcesPath
+      },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    backendServer.stdout.on('data', (data) => {
+      console.log('[Backend]', data.toString().trim());
+    });
+
+    backendServer.stderr.on('data', (data) => {
+      console.error('[Backend Error]', data.toString().trim());
+    });
+
+    backendServer.on('error', (err) => {
+      console.error('❌ 後端進程啟動失敗:', err);
+      reject(err);
+    });
+
+    backendServer.on('close', (code) => {
+      console.log(`[Backend] 進程退出，代碼: ${code}`);
+      backendServer = null;
+    });
+
+    // 等待後端啟動（檢測埠口是否可用）
+    const checkBackendReady = () => {
+      const { createConnection } = require('net');
+      const client = createConnection({ port: CONFIG.backendPort, host: CONFIG.backendHost }, () => {
+        client.end();
         console.log(`✅ 後端服務已啟動: http://${CONFIG.backendHost}:${CONFIG.backendPort}`);
         resolve();
       });
-
-      backendServer.on('error', (err) => {
-        console.error('❌ 後端服務啟動失敗:', err);
-        reject(err);
+      client.on('error', () => {
+        // 還沒啟動，稍後重試
+        setTimeout(checkBackendReady, 200);
       });
+    };
 
-    } catch (err) {
-      console.error('❌ 載入後端模組失敗:', err);
-      reject(err);
-    }
+    // 延遲一秒後開始檢測
+    setTimeout(checkBackendReady, 1000);
   });
 }
 
@@ -1173,7 +1226,7 @@ function startBackendServer() {
 function stopBackendServer() {
   if (backendServer) {
     console.log('🛑 停止後端服務...');
-    backendServer.close();
+    backendServer.kill();
     backendServer = null;
   }
 }
@@ -1266,6 +1319,11 @@ function setupAutoUpdater() {
     return;
   }
 
+  // 暫時禁用自動更新，避免開發版覆蓋
+  console.log('📦 自動更新已禁用');
+  return;
+
+  /*
   // 配置更新伺服器
   autoUpdater.setFeedURL({
     provider: 'generic',
@@ -1337,6 +1395,7 @@ function setupAutoUpdater() {
       console.error('檢查更新失敗:', err.message);
     });
   }, 5000);
+  */
 }
 
 // ============ IPC 通訊處理 ============
@@ -1973,19 +2032,35 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
   try {
     if (!buffer && !filePath) throw new Error('Buffer and filePath are empty');
 
-    // 1. 確定路徑
-    // Decoder 執行檔路徑 (生產環境: resource/extraResources, 開發: extraResources)
-    const extraResourcesPath = CONFIG.isDev
-      ? path.join(__dirname, '..', 'extraResources')
-      : path.join(process.resourcesPath, 'extraResources');
+    // 1. 確定 Decoder 路徑 - 使用 fallback 機制適應不同安裝位置
+    function getDecoderPath() {
+      const possiblePaths = [
+        // 生產環境標準路徑 (process.resourcesPath)
+        path.join(process.resourcesPath || '', 'extraResources', 'duck_decoder.exe'),
+        // 相對於執行檔的路徑
+        path.join(path.dirname(app.getPath('exe')), 'resources', 'extraResources', 'duck_decoder.exe'),
+        // 開發環境 - 相對於 __dirname
+        path.join(__dirname, '..', 'extraResources', 'duck_decoder.exe'),
+        // 開發環境 - 相對於 CWD
+        path.join(process.cwd(), 'extraResources', 'duck_decoder.exe'),
+        // Portable 模式 - 相對於 exe 同層
+        path.join(path.dirname(app.getPath('exe')), 'extraResources', 'duck_decoder.exe'),
+      ];
 
-    const decoderPath = path.join(extraResourcesPath, 'duck_decoder.exe');
+      for (const p of possiblePaths) {
+        if (p && fs.existsSync(p)) {
+          console.log('[Decoder] Found at:', p);
+          return p;
+        }
+      }
 
-    // 檢查 decoder 是否存在
-    if (!fs.existsSync(decoderPath)) {
-      console.error('Decoder not found at:', decoderPath);
-      throw new Error(`Decoder not found: ${decoderPath}`);
+      // 找不到時列出所有嘗試的路徑以便除錯
+      console.error('[Decoder] Not found. Searched paths:');
+      possiblePaths.forEach((p, i) => console.error(`  ${i + 1}. ${p}`));
+      throw new Error('duck_decoder.exe not found in any expected location');
     }
+
+    const decoderPath = getDecoderPath();
 
     // 確定輸出路徑
     // 確定輸出路徑

@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { ImageUploader } from './components/ImageUploader';
 import { normalizeImageUrl } from './utils/image';
 import { GeneratedImageDisplay } from './components/GeneratedImageDisplay';
-import { editImageWithGemini, generateCreativePromptFromImage, initializeAiClient, processBPTemplate, setThirdPartyConfig, optimizePrompt } from './services/geminiService';
+import { editImageWithGemini, generateCreativePromptFromImage, initializeAiClient, processBPTemplate, setThirdPartyConfig, optimizePrompt, generateCoverPrompts } from './services/geminiService';
 import CreativeExtractor, { extractCreatives } from './services/creativeExtractor';
 import { ApiStatus, GeneratedContent, CreativeIdea, SmartPlusConfig, ThirdPartyApiConfig, GenerationHistory, DesktopItem, DesktopImageItem, DesktopFolderItem } from './types';
 import { ImagePreviewModal } from './components/ImagePreviewModal';
@@ -29,7 +29,10 @@ import { downloadImage } from './services/export';
 import { ThemeProvider, useTheme, SnowfallEffect } from './contexts/ThemeContext';
 import { Desktop, createDesktopItemFromHistory, TOP_OFFSET } from './components/Desktop';
 import { HistoryDock } from './components/HistoryDock';
+import SideNavBar from './src/components/SideNavBar';
 import ReversePromptPanel from './components/ReversePromptPanel';
+import BatchCoverPanel from './src/components/BatchCoverPanel';
+import BatchCoverContainer from './src/components/BatchCoverContainer';
 import { CameraAngleController } from './components/CameraAngleController';
 import { InteriorDesignPanel } from './components/InteriorDesignPanel';
 import RunningHubView from './src/components/RunningHub/RunningHubView';
@@ -1311,110 +1314,112 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
   return (
     <aside className="w-[220px] flex-shrink-0 flex flex-col h-full liquid-panel border-l z-20">
-      {/* 上半部分：收藏创意 */}
-      <div className="flex-1 flex flex-col min-h-0 border-b border-white/10">
-        {/* 标题栏 */}
-        <div className="liquid-panel-section flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
-              <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-            </div>
-            <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setAddIdeaModalOpen(true)}
-              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-              style={{
-                background: 'var(--glass-bg)',
-                color: theme.colors.textSecondary
-              }}
-              title="新建創意"
-            >
-              <PlusCircleIcon className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => setView('local-library')}
-              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-              style={{
-                background: 'var(--glass-bg)',
-                color: theme.colors.textSecondary
-              }}
-              title="全部創意庫"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* 内容列表 */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-          {/* 最近使用 - 始终在最上方，最多显示3个 */}
-          {recentIdeas.length > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
-              </div>
-              <div className="space-y-1.5">
-                {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
-              </div>
-            </div>
-          )}
-
-          {/* 收藏列表 - 在下方 */}
-          {favoriteIdeas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center py-8">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
+        {/* 上半部分：收藏创意 */}
+        <div className="flex flex-col border-b border-white/10 flex-shrink-0">
+          {/* 标题栏 */}
+          <div className="liquid-panel-section flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
+                <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               </div>
-              <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
-              <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
+              <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setAddIdeaModalOpen(true)}
+                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+                style={{
+                  background: 'var(--glass-bg)',
+                  color: theme.colors.textSecondary
+                }}
+                title="新建創意"
+              >
+                <PlusCircleIcon className="w-3 h-3" />
+              </button>
               <button
                 onClick={() => setView('local-library')}
-                className="mt-4 px-4 py-2 liquid-btn text-[11px]"
+                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+                style={{
+                  background: 'var(--glass-bg)',
+                  color: theme.colors.textSecondary
+                }}
+                title="全部創意庫"
               >
-                <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
-                瀏覽創意庫
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
               </button>
             </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
+          </div>
+
+          {/* 内容列表 */}
+          <div className="p-3">
+            {/* 最近使用 - 始终在最上方，最多显示3个 */}
+            {recentIdeas.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
+                </div>
+                <div className="space-y-1.5">
+                  {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
+            )}
+
+            {/* 收藏列表 - 在下方 */}
+            {favoriteIdeas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-8">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+                  <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </div>
+                <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
+                <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
+                <button
+                  onClick={() => setView('local-library')}
+                  className="mt-4 px-4 py-2 liquid-btn text-[11px]"
+                >
+                  <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
+                  瀏覽創意庫
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
+                </div>
+                <div className="space-y-1.5">
+                  {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 底部统计 */}
+          {creativeIdeas.length > 0 && (
+            <div className="mx-3 mb-3 px-2.5 py-2 liquid-card">
+              <div className="flex items-center justify-between text-[10px]">
+                <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
+                <button
+                  onClick={() => setView('local-library')}
+                  className="text-blue-400 hover:text-blue-300 transition-colors"
+                  title="管理全部"
+                >
+                  管理全部 →
+                </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* 底部统计 */}
-        {creativeIdeas.length > 0 && (
-          <div className="mx-3 mb-3 px-2.5 py-2 liquid-card">
-            <div className="flex items-center justify-between text-[10px]">
-              <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
-              <button
-                onClick={() => setView('local-library')}
-                className="text-blue-400 hover:text-blue-300 transition-colors"
-                title="管理全部"
-              >
-                管理全部 →
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 下半部分：RH-AI 应用 */}
-      <div className="flex-1 flex flex-col min-h-0 bg-[#1e1e24] w-full">
-        <RHAppsLibrary onSelectApp={onSelectApp} className="flex-1" />
+        {/* 下半部分：RH-AI 应用 */}
+        <div className="flex flex-col bg-[#1e1e24] w-full flex-shrink-0">
+          <RHAppsLibrary onSelectApp={onSelectApp} className="" disableScroll={true} />
+        </div>
       </div>
     </aside>
   );
@@ -1745,6 +1750,9 @@ const App: React.FC = () => {
 
   const [files, setFiles] = useState<File[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState<number | null>(null);
+
+  // 導覽列狀態
+  const [activeNavPanel, setActiveNavPanel] = useState<'reverse' | 'angle' | 'runninghub' | 'batch-cover' | null>(null);
 
   // 視圖狀態
   const [view, setView] = useState<'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer'>('editor');
@@ -2381,118 +2389,7 @@ const App: React.FC = () => {
     }
   };
 
-  const saveToHistory = async (
-    imageUrl: string,
-    promptText: string,
-    isThirdParty: boolean,
-    inputFiles?: File[], // 修改为数组支持多图
-    creativeInfo?: {
-      templateId?: number;
-      templateType: 'smart' | 'smartPlus' | 'bp' | 'none';
-      bpInputs?: Record<string, string>;
-      smartPlusOverrides?: SmartPlusConfig;
-    }
-  ): Promise<{ historyId?: number; localImageUrl: string; localThumbnailUrl?: string } | undefined> => {
-    // 将输入图片转换为 base64 保存
-    let inputImageData: string | undefined;
-    let inputImageName: string | undefined;
-    let inputImageType: string | undefined;
-    let inputImages: Array<{ data: string; name: string; type: string }> | undefined;
 
-    // 保存所有输入图片（多图支持）
-    if (inputFiles && inputFiles.length > 0) {
-      try {
-        inputImages = await Promise.all(inputFiles.map(async (file) => {
-          const data = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(file);
-          });
-          return {
-            data,
-            name: file.name,
-            type: file.type
-          };
-        }));
-
-        // 保持向后兼容：第一张图片也保存到单图字段
-        if (inputImages.length > 0) {
-          inputImageData = inputImages[0].data;
-          inputImageName = inputImages[0].name;
-          inputImageType = inputImages[0].type;
-        }
-      } catch (e) {
-        console.warn('保存输入图片失败:', e);
-      }
-    }
-
-    const historyId = Date.now();
-
-    // 先保存图片到本地output目录，获取本地URL
-    let localImageUrl = imageUrl;
-    if (imageUrl.startsWith('data:')) {
-      // base64 格式，直接保存
-      try {
-        const saveResult = await saveToOutput(imageUrl);
-        if (saveResult.success && saveResult.data) {
-          // 使用本地文件URL替代base64
-          localImageUrl = saveResult.data.url;
-        }
-      } catch (e) {
-        console.log('保存到output失败，使用base64:', e);
-      }
-    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      // 远程 URL（贞贞 API 等返回），通过后端下载保存到本地防止过期（避免CORS问题）
-      try {
-        const downloadResult = await downloadRemoteToOutput(imageUrl);
-        if (downloadResult.success && downloadResult.data) {
-          localImageUrl = downloadResult.data.url;
-          if (downloadResult.thumbnail) {
-            // 捕獲縮略圖 URL
-            var localThumbnailUrl = downloadResult.thumbnail.url;
-          }
-          console.log('远程URL图片已保存到本地:', localImageUrl);
-        } else {
-          console.warn('后端下载远程图片失败:', downloadResult.error);
-        }
-      } catch (e) {
-        console.log('下载远程图片失败，使用原始URL:', e);
-      }
-    }
-
-    const historyItem: GenerationHistory = {
-      id: historyId,
-      imageUrl: localImageUrl, // 使用本地URL
-      prompt: promptText,
-      timestamp: Date.now(),
-      model: isThirdParty ? (thirdPartyApiConfig.model || 'nano-banana-2') : 'Gemini 3 Pro',
-      isThirdParty,
-      inputImageData,
-      inputImageName,
-      inputImageType,
-      inputImages, // 多图支持
-      // 创意库信息
-      creativeTemplateId: creativeInfo?.templateId,
-      creativeTemplateType: creativeInfo?.templateType || 'none',
-      bpInputs: creativeInfo?.bpInputs,
-      smartPlusOverrides: creativeInfo?.smartPlusOverrides
-    };
-    try {
-      const { id, ...historyWithoutId } = historyItem;
-      const result = await historyApi.createHistory(historyWithoutId as any);
-      if (result.success && result.data) {
-        setGenerationHistory(prev => [result.data!, ...prev].slice(0, 50));
-        setGenerationHistory(prev => [result.data!, ...prev].slice(0, 50));
-        return { historyId: result.data.id, localImageUrl, localThumbnailUrl };
-      }
-      console.error('保存历史记录失败:', result.error);
-    } catch (e) {
-      console.error('保存历史记录失败:', e);
-    }
-    // 即使保存历史记录失败，也返回本地URL供桌面使用
-    // 即使保存历史记录失败，也返回本地URL供桌面使用
-    return { historyId: undefined, localImageUrl, localThumbnailUrl };
-  };
 
   // 图片下载逻辑已迁移到 services/export/desktopExporter.ts
   // 使用 downloadImage from './services/export'
@@ -3231,12 +3128,29 @@ const App: React.FC = () => {
 
       if (result.imageUrl) {
         // 保存到历史记录
-        const saveResult = await saveToHistory(result.imageUrl, promptToSave, thirdPartyApiConfig.enabled, files.length > 0 ? files : [], {
+        const saveResult = await historyApi.saveToHistory(result.imageUrl, promptToSave, thirdPartyApiConfig.enabled, thirdPartyApiConfig, files.length > 0 ? files : [], {
           templateId,
           templateType,
           bpInputs: templateType === 'bp' ? { ...bpInputs } : undefined,
           smartPlusOverrides: templateType === 'smartPlus' ? [...smartPlusOverrides] : undefined
         });
+
+        if (saveResult?.historyId) {
+          // Sync state
+          const newHistoryItem: GenerationHistory = {
+            id: saveResult.historyId,
+            imageUrl: saveResult.localImageUrl,
+            prompt: promptToSave,
+            timestamp: Date.now(),
+            model: thirdPartyApiConfig.enabled ? (thirdPartyApiConfig.model || 'nano-banana-2') : 'Gemini 3 Pro',
+            isThirdParty: thirdPartyApiConfig.enabled,
+            creativeTemplateId: templateId,
+            creativeTemplateType: templateType,
+            bpInputs: templateType === 'bp' ? { ...bpInputs } : undefined,
+            smartPlusOverrides: templateType === 'smartPlus' ? [...smartPlusOverrides] : undefined
+          };
+          setGenerationHistory(prev => [newHistoryItem, ...prev].slice(0, 50));
+        }
 
         const savedHistoryId = saveResult?.historyId;
         const localImageUrl = saveResult?.localImageUrl || result.imageUrl;
@@ -3279,7 +3193,7 @@ const App: React.FC = () => {
       console.error('[Generate] 生成失败');
       setStatus(ApiStatus.Error);
     }
-  }, [files, prompt, apiKey, thirdPartyApiConfig, activeSmartTemplate, activeSmartPlusTemplate, activeBPTemplate, autoSave, downloadImage, aspectRatio, imageSize, activeCreativeIdea, findNextFreePosition, handleAddToDesktop, bpInputs, smartPlusOverrides, batchCount, desktopItems, saveToHistory]);
+  }, [files, prompt, apiKey, thirdPartyApiConfig, activeSmartTemplate, activeSmartPlusTemplate, activeBPTemplate, autoSave, downloadImage, aspectRatio, imageSize, activeCreativeIdea, findNextFreePosition, handleAddToDesktop, bpInputs, smartPlusOverrides, batchCount, desktopItems]);
 
   const handleBatchGenerate = useCallback(async () => {
     // 基础检查
@@ -3354,12 +3268,26 @@ const App: React.FC = () => {
 
         if (result.imageUrl) {
           // 保存历史
-          const saveResult = await saveToHistory(
+          const saveResult = await historyApi.saveToHistory(
             result.imageUrl,
             prompt,
             thirdPartyApiConfig.enabled,
+            thirdPartyApiConfig,
             taskFiles
           );
+
+          if (saveResult?.historyId) {
+            // Sync state
+            const newHistoryItem: GenerationHistory = {
+              id: saveResult.historyId,
+              imageUrl: saveResult.localImageUrl,
+              prompt: prompt,
+              timestamp: Date.now(),
+              model: thirdPartyApiConfig.enabled ? (thirdPartyApiConfig.model || 'nano-banana-2') : 'Gemini 3 Pro',
+              isThirdParty: thirdPartyApiConfig.enabled
+            };
+            setGenerationHistory(prev => [newHistoryItem, ...prev].slice(0, 50));
+          }
 
           const localUrl = saveResult?.localImageUrl || result.imageUrl;
 
@@ -3387,7 +3315,7 @@ const App: React.FC = () => {
     await Promise.all(promises);
     console.log("[Batch] 全部完成");
 
-  }, [files, apiKey, thirdPartyApiConfig, prompt, aspectRatio, imageSize, activeCreativeIdea, desktopItems, findNextFreePosition, safeDesktopSave, saveToHistory]);
+  }, [files, apiKey, thirdPartyApiConfig, prompt, aspectRatio, imageSize, activeCreativeIdea, desktopItems, findNextFreePosition, safeDesktopSave]);
 
   // 卸载创意库：清空所有模板设置和提示词
   const handleClearTemplate = useCallback(() => {
@@ -3815,29 +3743,37 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 圖片反推面板 + 拍攝角度控制器 */}
+      {/* 側邊導覽列 */}
       {view !== 'interior-design' && view !== 'runninghub' && (
-        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300">
-          <div className="flex-1 overflow-hidden border-b border-white/5">
+        <SideNavBar
+          activePanel={activeNavPanel}
+          onSelectPanel={setActiveNavPanel}
+        />
+      )}
+
+      {/* 條件渲染的側邊功能面板 */}
+      {view !== 'interior-design' && view !== 'runninghub' && activeNavPanel && (
+        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+
+          {/* 圖片反推面板 */}
+          <div className={activeNavPanel === 'reverse' ? 'block h-full overflow-hidden' : 'hidden'}>
             <ReversePromptPanel
               files={files}
               onPromptGenerate={handleSetPrompt}
             />
           </div>
-          <div className="flex-1 overflow-hidden">
+
+          {/* 角度控制面板 */}
+          <div className={activeNavPanel === 'angle' ? 'block h-full overflow-hidden' : 'hidden'}>
             <CameraAngleController
               onApply={(newPrompt) => {
                 handleSetPrompt(prev => {
-                  // 檢查是否存在舊的 <sks> 標籤
                   const sksIndex = prev.indexOf('<sks>');
                   if (sksIndex !== -1) {
-                    // 如果存在，保留 <sks> 之前的內容 (並移除末尾逗號)，然後加上新的 prompt
                     const before = prev.substring(0, sksIndex).trim();
                     const cleanBefore = before.replace(/,\s*$/, '');
                     return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
                   }
-
-                  // 如果不存在，則直接追加
                   const trimmed = prev.trim();
                   if (!trimmed) return newPrompt;
                   if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
@@ -3846,20 +3782,32 @@ const App: React.FC = () => {
               }}
             />
           </div>
-        </div>
-      )}
 
-      {/* RunningHub 面板 (全高) - 在室內設計頁面隱藏 */}
-      {view !== 'interior-design' && view !== 'runninghub' && (
-        <div className="flex-shrink-0 w-[260px] border-r border-white/5 bg-black/20 backdrop-blur-sm transition-all duration-300 flex flex-col">
-          <div className="flex-1 w-full h-full overflow-hidden">
+          {/* 批量封面面板 */}
+          <div className={activeNavPanel === 'batch-cover' ? 'block h-full overflow-hidden' : 'hidden'}>
+            <BatchCoverContainer
+              status={status}
+              setStatus={setStatus}
+              setError={setError}
+              apiKey={apiKey}
+              thirdPartyApiConfig={thirdPartyApiConfig}
+              desktopItems={desktopItems}
+              setDesktopItems={setDesktopItems}
+              safeDesktopSave={safeDesktopSave}
+              files={files}
+              aspectRatio={aspectRatio}
+              imageSize={imageSize}
+            />
+          </div>
+
+          {/* Mini RunningHub 面板 */}
+          <div className={activeNavPanel === 'runninghub' ? 'block w-full h-full overflow-hidden' : 'hidden'}>
             <MiniRunningHub
               onHistoryUpdate={loadDataFromLocal}
               externalFile={rhUploadFile}
               onTaskSuccess={handleRunningHubSuccess}
               activeAppId={activeRHAppId}
               onTaskStart={async (taskId, promptValue) => {
-                // 1. 創建並保存佔位符
                 const pos = findNextFreePosition();
                 const placeholder: DesktopImageItem = {
                   id: `rh-${taskId}`,
@@ -3868,7 +3816,7 @@ const App: React.FC = () => {
                   position: pos,
                   createdAt: Date.now(),
                   updatedAt: Date.now(),
-                  imageUrl: '', // 空表示加載中
+                  imageUrl: '',
                   prompt: promptValue,
                   model: 'RunningHub',
                   isThirdParty: true,
@@ -3881,10 +3829,8 @@ const App: React.FC = () => {
                   return items;
                 });
 
-                // 2. 啟動後台監控 (不阻塞 UI)
                 const monitorTask = async () => {
                   try {
-                    // 動態導入以避免循環依賴或過大
                     const { queryTaskOutputs } = await import('./src/services/runningHub/api');
                     const { API_CODE } = await import('./src/services/runningHub/types');
                     const savedApiKey = localStorage.getItem('rh_api_key') || '';
@@ -3895,21 +3841,14 @@ const App: React.FC = () => {
                       try {
                         const response = await queryTaskOutputs(savedApiKey, taskId);
                         if (response.code === API_CODE.SUCCESS) {
-                          // [Fix] 使用與 runningHubTaskStore 相同的標準化邏輯
                           const rawData = response.data;
                           let outputs: { fileUrl: string }[] = [];
 
                           if (Array.isArray(rawData)) {
                             outputs = rawData.map((item: any) => {
-                              if (item && typeof item.fileUrl === 'string') {
-                                return { fileUrl: item.fileUrl };
-                              }
-                              if (typeof item === 'string') {
-                                return { fileUrl: item };
-                              }
-                              if (item && typeof item.url === 'string') {
-                                return { fileUrl: item.url };
-                              }
+                              if (item && typeof item.fileUrl === 'string') return { fileUrl: item.fileUrl };
+                              if (typeof item === 'string') return { fileUrl: item };
+                              if (item && typeof item.url === 'string') return { fileUrl: item.url };
                               return null;
                             }).filter(Boolean) as { fileUrl: string }[];
                           } else if (rawData && typeof rawData === 'object') {
@@ -3925,18 +3864,9 @@ const App: React.FC = () => {
                             }
                           }
 
-                          // [Debug] 查看 outputs 實際內容
-                          console.log('[MiniRH Debug] rawData:', JSON.stringify(rawData, null, 2));
-                          console.log('[MiniRH Debug] normalized outputs.length:', outputs.length);
-
                           if (outputs.length > 0) {
-
-                            // [Fix] 處理所有輸出圖片，不只是第一張
-                            // 使用網格系統計算位置
                             const gridSize = 100;
                             const maxCols = 10;
-
-                            // 計算空閒位置的輔助函數
                             const findFreePositionInItems = (items: DesktopItem[], excludeId?: string) => {
                               const occupiedPositions = new Set(
                                 items
@@ -3949,13 +3879,10 @@ const App: React.FC = () => {
                                   })
                                   .map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
                               );
-
                               for (let row = 0; row < 100; row++) {
                                 for (let col = 0; col < maxCols; col++) {
                                   const key = `${col},${row}`;
-                                  if (!occupiedPositions.has(key)) {
-                                    return { x: col * gridSize, y: row * gridSize };
-                                  }
+                                  if (!occupiedPositions.has(key)) return { x: col * gridSize, y: row * gridSize };
                                 }
                               }
                               return { x: 0, y: 0 };
@@ -3963,8 +3890,6 @@ const App: React.FC = () => {
 
                             for (let i = 0; i < outputs.length; i++) {
                               const imageUrl = outputs[i].fileUrl;
-
-                              // 嘗試保存到歷史，但不阻塞桌面項目創建
                               let saveRes: any = null;
                               try {
                                 saveRes = await saveToHistory(imageUrl, promptValue, true);
@@ -3973,19 +3898,17 @@ const App: React.FC = () => {
                               }
 
                               if (i === 0) {
-                                // 更新原始佔位符為第一張圖片
                                 setDesktopItems(current => current.map(item =>
                                   item.id === placeholder.id
                                     ? { ...item, imageUrl: saveRes?.localImageUrl || imageUrl, thumbnailUrl: saveRes?.localThumbnailUrl, isLoading: false, historyId: saveRes?.historyId }
                                     : item
                                 ));
                               } else {
-                                // 使用函數式更新，在最新狀態上計算空閒位置
                                 const newItem: DesktopImageItem = {
                                   id: `rh-${taskId}-${i}`,
                                   type: 'image',
                                   name: `RH: ${promptValue.slice(0, 10)}... (${i + 1})`,
-                                  position: { x: 0, y: 0 }, // 暫時，會在 setDesktopItems 內更新
+                                  position: { x: 0, y: 0 },
                                   createdAt: Date.now(),
                                   updatedAt: Date.now(),
                                   imageUrl: saveRes?.localImageUrl || imageUrl,
@@ -3996,103 +3919,23 @@ const App: React.FC = () => {
                                   isLoading: false,
                                   historyId: saveRes?.historyId,
                                 };
-
                                 setDesktopItems(current => {
                                   const freePos = findFreePositionInItems(current);
                                   return [...current, { ...newItem, position: freePos }];
                                 });
                               }
-
-                              // 更新歷史記錄
                               if (saveRes?.historyId) {
                                 setGenerationHistory(prev => [
                                   { id: saveRes.historyId, imageUrl: saveRes.localImageUrl || imageUrl, prompt: promptValue, createdAt: new Date().toISOString() },
                                   ...prev
                                 ]);
                               }
-
-                              // 自動保存 (由後端 saveToHistory 處理，不再呼叫瀏覽器下載)
-
-                              // 自動解碼 (RunningHub 任務輸出固定自動嘗試，且靜默失敗)
-                              if (window.electronAPI?.runningHub?.decodeImage) {
-                                try {
-                                  fetch(saveRes?.localImageUrl || imageUrl)
-                                    .then(res => res.arrayBuffer())
-                                    .then(buffer => {
-                                      const time = Date.now();
-                                      const fileName = `decoded-${time}.png`;
-
-                                      window.electronAPI.runningHub.decodeImage(buffer, fileName)
-                                        .then(result => {
-                                          if (result.success && result.localUrl) {
-                                            console.log('[AutoDecode] Success:', result.filePath);
-
-                                            // 檢查是否已經存在相同的解碼項目（避免重複添加導致閃爍）
-                                            setDesktopItems(current => {
-                                              const alreadyExists = current.some(item =>
-                                                item.imageUrl === result.localUrl
-                                              );
-
-                                              if (alreadyExists) {
-                                                console.log('[AutoDecode] Item already exists, skipping');
-                                                return current;
-                                              }
-
-
-                                              // 在函數式更新內部計算空閒位置，使用最新的 current 狀態
-                                              const gridSize = 100;
-                                              const maxCols = 10;
-                                              const occupiedPositions = new Set(
-                                                current
-                                                  .filter(item => {
-                                                    const isInFolder = current.some(
-                                                      other => other.type === 'folder' && (other as any).itemIds?.includes(item.id)
-                                                    );
-                                                    return !isInFolder;
-                                                  })
-                                                  .map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
-                                              );
-
-                                              let freePos = { x: 0, y: 0 };
-                                              outerLoop: for (let y = 0; y < 100; y++) {
-                                                for (let x = 0; x < maxCols; x++) {
-                                                  const key = `${x},${y}`;
-                                                  if (!occupiedPositions.has(key)) {
-                                                    freePos = { x: x * gridSize, y: y * gridSize };
-                                                    break outerLoop;
-                                                  }
-                                                }
-                                              }
-
-                                              const newItem: DesktopImageItem = {
-                                                id: `decoded-${time}-${Math.random().toString(36).substring(7)}`,
-                                                type: 'image',
-                                                name: result.fileName.replace('.png', ''),
-                                                imageUrl: result.localUrl,
-                                                position: freePos,
-                                                createdAt: time,
-                                                updatedAt: time,
-                                                isLoading: false
-                                              };
-                                              const newItems = [...current, newItem];
-                                              safeDesktopSave(newItems);
-                                              return newItems;
-                                            });
-                                          }
-                                        })
-                                        .catch(() => { /* 靜默失敗 */ });
-                                    });
-                                } catch (e) { /* 靜默失敗 */ }
-                              }
                             }
-
-                            // 觸發成功回調
                             handleRunningHubSuccess(outputs);
                           }
                         } else if (response.code === API_CODE.FAILED) {
                           throw new Error(response.msg || 'Task Failed');
                         } else {
-                          // 繼續輪詢
                           setTimeout(poll, 3000);
                         }
                       } catch (err: any) {
@@ -4104,17 +3947,16 @@ const App: React.FC = () => {
                         ));
                       }
                     };
-
                     poll();
                   } catch (e) {
                     console.error('Failed to start monitor:', e);
                   }
                 };
-
                 monitorTask();
               }}
             />
           </div>
+
         </div>
       )}
 

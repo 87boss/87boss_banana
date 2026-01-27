@@ -16,7 +16,6 @@
         "public/rh.png",
         "backend-nodejs/**/*",
         "!backend-nodejs/.venv/**",
-        "!backend-nodejs/node_modules/**",
         "!**/test/**",
         "!**/*.md",
         "!**/.bin/**"
@@ -35,6 +34,10 @@
                 "!.venv/**",
                 "!node_modules/**"
             ]
+        },
+        {
+            "from": "dist",
+            "to": "dist"
         }
     ],
     "win": {

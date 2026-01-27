@@ -1168,3 +1168,116 @@ export const generateEngineeringDrawing = async (
   return result.imageUrl;
 };
 
+export const generateCoverPrompts = async (
+  theme: string,
+  title: string,
+  subtitle: string,
+  footer: string,
+  count: number,
+  scene: string,
+  plot: string,
+  media: string,
+  apiKey?: string,
+  thirdPartyConfig?: ThirdPartyApiConfig
+): Promise<string[]> => {
+  // Check logic matching generateCreativePromptFromImage
+  const useThirdParty = thirdPartyConfig && thirdPartyConfig.enabled && thirdPartyConfig.apiKey;
+  if (!useThirdParty && !ai) {
+    throw new Error("請先設置 Gemini API Key 或配置貞贞API");
+  }
+
+  const modelName = 'gemini-3-pro-image-preview'; // Matching user request/reference
+
+  const systemPrompt = `You are an expert AI Art Director specializing in cover design and typography.
+Your task is to generate ${count} distinct, high-quality AI image prompts based on the following metadata:
+- Theme/Style: "${theme}"
+- Scene Context: "${scene}"
+- Story/Plot: "${plot}"
+- Target Media Platform: "${media}"
+- Main Title: "${title}"
+- Subtitle: "${subtitle}"
+- Footer text: "${footer}"
+
+Guidelines:
+1. Each prompt must describe a COVER ART VISUAL effectively.
+2. Incorporate the "Theme" into the visual style (e.g., minimalist, cyberpunk, watercolor, etc.).
+3. **Context Integration**: Use the "${scene}" and "${plot}" to create a relevant background, atmosphere, and subject matter that aligns with the story.
+4. **Media Optimization**: This is for "${media}". Ensure the composition and visual impact are suitable for this platform (e.g., if Instagram, focus on aesthetic impact; if YouTube, focus on clickability).
+5. Mention text placement or composition suitable for a cover.
+6. **CRITICAL: TEXT RENDERING**: You MUST explicitly instruct the image generator to RENDER the text.
+   - Example phrase: "With the title '${title}' written in bold, modern typography at the center."
+   - Example phrase: "Subtitle '${subtitle}' below the main title in smaller font."
+   - Example phrase: "Footer text '${footer}' at the bottom."
+7. Provide variety in composition (close-up, wide shot, centralized).
+8. Return ONLY a valid JSON array of strings. No markdown, no "Here are...".
+Example output: ["Prompt 1...", "Prompt 2..."]`;
+
+  try {
+    let resultText = '';
+
+    // 1. Third Party Path
+    if (useThirdParty) {
+      const response = await fetch(`${thirdPartyConfig!.baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${thirdPartyConfig!.apiKey}`
+        },
+        body: JSON.stringify({
+          model: thirdPartyConfig!.chatModel || 'gemini-2.0-flash-exp',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Generate ${count} prompts.` }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[ThirdParty API Error]', response.status, errText);
+        throw new Error(`ThirdParty API failed (${response.status}): ${errText}`);
+      }
+      const data = await response.json();
+      resultText = data.choices[0].message.content;
+
+    } else {
+      // 2. Local Gemini Path (using SDK + 3 Pro)
+      const response: GenerateContentResponse = await withRetry(() =>
+        ai!.models.generateContent({
+          model: modelName,
+          contents: [
+            {
+              parts: [
+                { text: systemPrompt + "\n\nGenerate the prompts." }
+              ]
+            }
+          ],
+          config: {
+            temperature: 0.7
+          }
+        })
+      );
+
+      resultText = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!resultText) {
+        throw new Error('Gemini API returned no text response.');
+      }
+    }
+
+    // Clean up markdown block if present
+    const jsonStr = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const prompts = JSON.parse(jsonStr);
+
+    if (Array.isArray(prompts)) {
+      return prompts.slice(0, count);
+    }
+    return [];
+
+  } catch (error) {
+    console.error("Cover Prompt Generation Failed:", error);
+    throw error;
+  }
+};
+
+

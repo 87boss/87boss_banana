@@ -21,7 +21,7 @@ const config = {
   THUMBNAILS_DIR: path.join(BASE_DIR, 'thumbnails'),
   DATA_DIR: path.join(BASE_DIR, 'data'),
   CREATIVE_IMAGES_DIR: path.join(BASE_DIR, 'creative_images'),
-  DIST_DIR: path.join(BASE_DIR, 'dist'),
+  DIST_DIR: process.env.RESOURCES_PATH ? path.join(process.env.RESOURCES_PATH, 'dist') : path.join(BASE_DIR, 'dist'),
 
   // 缩略图配置
   THUMBNAIL_SIZE: 160, // 缩略图大小（像素）

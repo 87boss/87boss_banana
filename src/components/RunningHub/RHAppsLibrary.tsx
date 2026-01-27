@@ -12,9 +12,10 @@ interface SavedApp {
 interface RHAppsLibraryProps {
     onSelectApp: (appId: string) => void;
     className?: string;
+    disableScroll?: boolean;
 }
 
-export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, className }) => {
+export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, className, disableScroll = false }) => {
     const [savedApps, setSavedApps] = useState<SavedApp[]>([]);
 
     // 加载保存的应用
@@ -70,14 +71,14 @@ export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, class
     };
 
     return (
-        <div className={`flex flex-col h-full bg-[#1e1e24] text-white ${className}`}>
+        <div className={`flex flex-col ${disableScroll ? 'h-auto' : 'h-full'} bg-[#1e1e24] text-white ${className}`}>
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
                 <Box className="w-4 h-4 text-purple-400" />
                 <h3 className="text-xs font-semibold">{getTranslation('labels.sidePanelTitle')}</h3>
                 <span className="text-[10px] text-white/40 ml-auto">{savedApps.length} 個</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+            <div className={`${disableScroll ? '' : 'flex-1 overflow-y-auto custom-scrollbar'} p-2 space-y-2`}>
                 {savedApps.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-20 text-white/30 text-[10px]">
                         <p>{getTranslation('labels.noSavedApps')}</p>
