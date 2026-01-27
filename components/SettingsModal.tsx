@@ -349,6 +349,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </label>
             </div>
 
+            {/* 資料夾捷徑 */}
+            <div className="flex items-center justify-between p-3 rounded-xl border"
+              style={{ background: colors.bgTertiary, borderColor: colors.border }}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📂</span>
+                <div>
+                  <h4 className="text-sm font-medium" style={{ color: colors.textPrimary }}>輸出資料夾</h4>
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>開啟存放生成的圖片的位置</p>
+                </div>
+              </div>
+              <button
+                onClick={() => (window as any).electronAPI?.openStoragePath?.()}
+                className="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                style={{ background: colors.primary }}
+              >
+                開啟資料夾
+              </button>
+            </div>
+
             {/* 当前模型显示 */}
             <div className="flex items-center justify-between p-3 rounded-xl border"
               style={{ background: colors.bgTertiary, borderColor: colors.border }}>

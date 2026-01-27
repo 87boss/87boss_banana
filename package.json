@@ -3,7 +3,7 @@
   "description": "87Boss AI RunningHub Client",
   "author": "RunningHub",
   "private": true,
-  "version": "0.0.9",
+  "version": "0.0.10",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
