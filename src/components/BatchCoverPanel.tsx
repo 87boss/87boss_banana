@@ -8,42 +8,55 @@ interface BatchCoverData {
     title: string;
     subtitle: string;
     footer: string;
+    textEffect: string;
     count: number;
-    scene: string;
-    plot: string;
+    // scene: string; // Removed
+    // plot: string; // Removed
     media: string;
 }
 
 interface BatchCoverPanelProps {
-    onGenerate: (data: BatchCoverData) => Promise<string[] | void>; // Changed to return prompts
-    onStartBatch: (prompts: string[]) => void;
+    onGenerate: (data: BatchCoverData) => Promise<string[] | void>;
+    onStartBatch: (prompts: string[], mode: 'banana' | 'runninghub') => void;
     isLoading: boolean;
 }
 
 const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBatch, isLoading }) => {
     const [media, setMedia] = useState('Instagram');
     const [theme, setTheme] = useState('');
-    const [scene, setScene] = useState('');
-    const [plot, setPlot] = useState('');
+    // const [scene, setScene] = useState(''); // Removed
+    // const [plot, setPlot] = useState(''); // Removed
     const [title, setTitle] = useState('');
     const [subtitle, setSubtitle] = useState('');
     const [footer, setFooter] = useState('');
+    const [textEffect, setTextEffect] = useState('無特效 (None)');
     const [count, setCount] = useState(4);
 
     const [generatedPrompts, setGeneratedPrompts] = useState<string[]>([]);
     const [isReviewing, setIsReviewing] = useState(false);
     const [promptsText, setPromptsText] = useState('');
 
+    const [customStyle, setCustomStyle] = useState('');
+
     const mediaOptions = [
-        'Instagram',
-        'Facebook',
-        'YouTube',
-        'TikTok',
-        'LINE',
-        'LinkedIn',
-        'Twitter (X)',
-        'Threads',
-        'Pinterest'
+        'VOGUE (時尚)',
+        'TIME (時代雜誌)',
+        'National Geographic (國家地理)',
+        'POPEYE (日系潮流)',
+        'BRUTUS (日系生活)',
+        'NON-NO (日系清新)',
+        'FUDGE (英倫復古)',
+        'GQ (紳士風格)',
+        'Esquire (君子雜誌)',
+        'Kinfolk (極簡生活)',
+        'W Korea (韓系前衛)',
+        '隨機風格 (Random)',
+        '自訂風格 (Custom)'
+    ];
+
+    const textEffectOptions = [
+        '無特效 (None)', '金屬質感 (Metal)', '玻璃質感 (Glass)', '水晶質感 (Crystal)',
+        '霓虹 (Neon)', '火焰 (Fire)', '冰霜 (Ice)', '木質 (Wood)', '石質感 (Stone)', '3D立體 (3D)'
     ];
 
     const handleGeneratePrompts = async () => {
@@ -51,25 +64,38 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
             alert('請輸入封面主題 (Theme is required)');
             return;
         }
-        const prompts = await onGenerate({ theme, title, subtitle, footer, count, scene, plot, media });
+
+        // Determine final style
+        let finalStyle = media;
+        if (media.includes('Custom') || media === '自訂風格 (Custom)') {
+            if (!customStyle.trim()) {
+                alert('請輸入自訂風格 (Please enter a custom style)');
+                return;
+            }
+            finalStyle = customStyle;
+        } else if (media.includes('Random') || media === '隨機風格 (Random)') {
+            // Let backend handle random, or pick here? 
+            // Logic: Pass "Random" to backend and let it decide to ensure variety per prompt?
+            // Or pick one random local?
+            // Prompt says "distinct prompts", so "Random" passed to backend is better for variety.
+            finalStyle = 'Random Magazine Style';
+        }
+
+        const prompts = await onGenerate({ theme, title, subtitle, footer, textEffect, count, media: finalStyle } as any);
         if (prompts && Array.isArray(prompts) && prompts.length > 0) {
             setGeneratedPrompts(prompts);
             setPromptsText(prompts.join('\n\n'));
             setIsReviewing(true);
-
-            // Auto-start generation as requested
-            const finalPrompts = prompts.filter(p => p.trim().length > 0);
-            onStartBatch(finalPrompts);
         }
     };
 
-    const handleStartBatch = () => {
-        // Split by double newline to get array back
+    const handleStartValues = (mode: 'banana' | 'runninghub') => {
         const finalPrompts = promptsText.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-        onStartBatch(finalPrompts);
-        setIsReviewing(false);
-        setGeneratedPrompts([]);
-        setPromptsText('');
+        if (finalPrompts.length === 0) {
+            alert("請先生成提示詞 (Please generate prompts first)");
+            return;
+        }
+        onStartBatch(finalPrompts, mode);
     };
 
     return (
@@ -81,10 +107,10 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 custom-scrollbar">
-                {/* Media Select */}
+                {/* Magazine Style Select */}
                 <div className="space-y-2">
                     <label className="text-xs text-gray-400 flex items-center gap-1.5">
-                        <Share2 className="w-3 h-3" /> 媒體平台 (Media)
+                        <BookOpen className="w-3 h-3" /> 雜誌風格 (Magazine Style)
                     </label>
                     <select
                         value={media}
@@ -95,6 +121,17 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
                             <option key={opt} value={opt} className="bg-gray-900">{opt}</option>
                         ))}
                     </select>
+
+                    {/* Custom Style Input */}
+                    {(media === '自訂風格 (Custom)' || media.includes('Custom')) && (
+                        <input
+                            type="text"
+                            value={customStyle}
+                            onChange={(e) => setCustomStyle(e.target.value)}
+                            placeholder="輸入您的自訂風格..."
+                            className="w-full mt-2 bg-black/40 border border-purple-500/30 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all animate-in fade-in slide-in-from-top-1"
+                        />
+                    )}
                 </div>
 
                 {/* Theme Input */}
@@ -106,34 +143,7 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
                         value={theme}
                         onChange={(e) => setTheme(e.target.value)}
                         placeholder="例如：科技感、極簡主義、大自然風格..."
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all resize-none h-20"
-                    />
-                </div>
-
-                {/* Scene Input */}
-                <div className="space-y-2">
-                    <label className="text-xs text-gray-400 flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3" /> 場景 (Scene)
-                    </label>
-                    <input
-                        type="text"
-                        value={scene}
-                        onChange={(e) => setScene(e.target.value)}
-                        placeholder="例如：繁忙的咖啡廳、外太空、寧靜的書房..."
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all"
-                    />
-                </div>
-
-                {/* Plot Input */}
-                <div className="space-y-2">
-                    <label className="text-xs text-gray-400 flex items-center gap-1.5">
-                        <BookOpen className="w-3 h-3" /> 劇情 (Plot)
-                    </label>
-                    <textarea
-                        value={plot}
-                        onChange={(e) => setPlot(e.target.value)}
-                        placeholder="簡述故事背景或情節..."
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all resize-none h-16"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all resize-none h-32"
                     />
                 </div>
 
@@ -179,6 +189,22 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
                     />
                 </div>
 
+                {/* Text Effect Select */}
+                <div className="space-y-2">
+                    <label className="text-xs text-gray-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3" /> 文字特效 (Text Effect)
+                    </label>
+                    <select
+                        value={textEffect}
+                        onChange={(e) => setTextEffect(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all appearance-none cursor-pointer hover:bg-white/5"
+                    >
+                        {textEffectOptions.map(opt => (
+                            <option key={opt} value={opt} className="bg-gray-900">{opt}</option>
+                        ))}
+                    </select>
+                </div>
+
                 {/* Count Input */}
                 <div className="space-y-2">
                     <label className="text-xs text-gray-400 flex items-center gap-1.5">
@@ -198,6 +224,21 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
                         </span>
                     </div>
                 </div>
+
+                {/* Prompt Editor */}
+                {isReviewing && (
+                    <div className="space-y-2 pt-4 border-t border-white/10 animate-in fade-in slide-in-from-bottom-2">
+                        <label className="text-xs text-gray-400 flex items-center gap-1.5">
+                            <AlignLeft className="w-3 h-3" /> 編輯提示詞 (Edit Prompts)
+                        </label>
+                        <textarea
+                            value={promptsText}
+                            onChange={(e) => setPromptsText(e.target.value)}
+                            placeholder="Generated prompts will appear here..."
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all resize-none h-40 font-mono"
+                        />
+                    </div>
+                )}
             </div>
 
 
@@ -216,10 +257,27 @@ const BatchCoverPanel: React.FC<BatchCoverPanelProps> = ({ onGenerate, onStartBa
                     ) : (
                         <>
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span>生成並開始繪圖 (Generate & Start)</span>
+                            <span>{isReviewing ? "重新生成提示詞 (Regenerate)" : "生成提示詞 (Generate Prompts)"}</span>
                         </>
                     )}
                 </button>
+
+                {isReviewing && !isLoading && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button
+                            onClick={() => handleStartValues('banana')}
+                            className="h-10 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-500 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all"
+                        >
+                            <span>🍌 Banana (Gemini)</span>
+                        </button>
+                        <button
+                            onClick={() => handleStartValues('runninghub')}
+                            className="h-10 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 text-purple-400 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all"
+                        >
+                            <span>🏃 RunningHub</span>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

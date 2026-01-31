@@ -34,6 +34,10 @@ export const rhTranslations = {
         unnamedApp: '未命名應用',
         delete: '刪除',
         confirmDelete: '點擊確認刪除',
+        syncNames: '同步名稱 (從 API 獲取最新中文名稱)',
+        syncComplete: '同步完成，更新了 {count} 個名稱',
+        syncNoChanges: '同步完成，沒有名稱需要更新',
+        syncFailed: '同步失敗，請檢查網絡或 API Key',
     },
     // API Status Mapping
     status: {

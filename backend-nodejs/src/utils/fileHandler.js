@@ -12,9 +12,10 @@ class FileHandler {
    * @param {string} imageData - base64编码的图片数据
    * @param {string} targetDir - 目标目录
    * @param {string} filename - 文件名(可选)
+   * @param {string} virtualDir - 虚拟目录名(如 output/input)，用于生成URL(可选)
    * @returns {object} 保存结果 {success, data: {filename, path, url}}
    */
-  static saveImage(imageData, targetDir, filename = null) {
+  static saveImage(imageData, targetDir, filename = null, virtualDir = null) {
     try {
       // 确保目录存在
       if (!fs.existsSync(targetDir)) {
@@ -62,7 +63,7 @@ class FileHandler {
       fs.writeFileSync(filePath, buffer);
 
       // 返回相对URL路径
-      const dirName = path.basename(targetDir);
+      const dirName = virtualDir || path.basename(targetDir);
       return {
         success: true,
         data: {

@@ -1313,113 +1313,111 @@ const RightPanel: React.FC<RightPanelProps> = ({
   };
 
   return (
-    <aside className="w-[220px] flex-shrink-0 flex flex-col h-full liquid-panel border-l z-20">
-      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
-        {/* 上半部分：收藏创意 */}
-        <div className="flex flex-col border-b border-white/10 flex-shrink-0">
-          {/* 标题栏 */}
-          <div className="liquid-panel-section flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
-                <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+    <aside className="w-[220px] flex-shrink-0 flex flex-col h-full liquid-panel border-l z-20 overflow-hidden">
+      {/* 上半部分：收藏创意 (Flex-1 to take available space) */}
+      <div className="flex-1 flex flex-col min-h-0 border-b border-white/10">
+        {/* 标题栏 (Fixed) */}
+        <div className="liquid-panel-section flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center">
+              <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </div>
+            <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setAddIdeaModalOpen(true)}
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+              style={{
+                background: 'var(--glass-bg)',
+                color: theme.colors.textSecondary
+              }}
+              title="新建創意"
+            >
+              <PlusCircleIcon className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setView('local-library')}
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
+              style={{
+                background: 'var(--glass-bg)',
+                color: theme.colors.textSecondary
+              }}
+              title="全部創意庫"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 内容列表 (Scrollable) */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 min-h-0">
+          {/* 最近使用 - 始终在最上方，最多显示3个 */}
+          {recentIdeas.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
+              </div>
+              <div className="space-y-1.5">
+                {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
+              </div>
+            </div>
+          )}
+
+          {/* 收藏列表 - 在下方 */}
+          {favoriteIdeas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-8">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               </div>
-              <h2 className="text-[12px] font-semibold" style={{ color: theme.colors.textPrimary }}>收藏創意</h2>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setAddIdeaModalOpen(true)}
-                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-                style={{
-                  background: 'var(--glass-bg)',
-                  color: theme.colors.textSecondary
-                }}
-                title="新建創意"
-              >
-                <PlusCircleIcon className="w-3 h-3" />
-              </button>
+              <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
+              <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
               <button
                 onClick={() => setView('local-library')}
-                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:scale-105 press-scale"
-                style={{
-                  background: 'var(--glass-bg)',
-                  color: theme.colors.textSecondary
-                }}
-                title="全部創意庫"
+                className="mt-4 px-4 py-2 liquid-btn text-[11px]"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
+                <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
+                瀏覽創意庫
               </button>
             </div>
-          </div>
-
-          {/* 内容列表 */}
-          <div className="p-3">
-            {/* 最近使用 - 始终在最上方，最多显示3个 */}
-            {recentIdeas.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>最近使用</span>
-                </div>
-                <div className="space-y-1.5">
-                  {recentIdeas.slice(0, 3).map(idea => renderIdeaItem(idea, true, false, true))}
-                </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
               </div>
-            )}
-
-            {/* 收藏列表 - 在下方 */}
-            {favoriteIdeas.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-8">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
-                  <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                  </svg>
-                </div>
-                <p className="text-[11px] font-medium" style={{ color: theme.colors.textPrimary }}>還沒有收藏</p>
-                <p className="text-[10px] mt-1" style={{ color: theme.colors.textMuted }}>在創意庫中點擊星標收藏</p>
-                <button
-                  onClick={() => setView('local-library')}
-                  className="mt-4 px-4 py-2 liquid-btn text-[11px]"
-                >
-                  <LibraryIcon className="w-3.5 h-3.5 mr-1.5" />
-                  瀏覽創意庫
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-medium" style={{ color: theme.colors.textMuted }}>收藏</span>
-                </div>
-                <div className="space-y-1.5">
-                  {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 底部统计 */}
-          {creativeIdeas.length > 0 && (
-            <div className="mx-3 mb-3 px-2.5 py-2 liquid-card">
-              <div className="flex items-center justify-between text-[10px]">
-                <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
-                <button
-                  onClick={() => setView('local-library')}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                  title="管理全部"
-                >
-                  管理全部 →
-                </button>
+              <div className="space-y-1.5">
+                {favoriteIdeas.map(idea => renderIdeaItem(idea, false))}
               </div>
             </div>
           )}
         </div>
 
-        {/* 下半部分：RH-AI 应用 */}
-        <div className="flex flex-col bg-[#1e1e24] w-full flex-shrink-0">
-          <RHAppsLibrary onSelectApp={onSelectApp} className="" disableScroll={true} />
-        </div>
+        {/* 底部统计 (Fixed at bottom of Favorites section) */}
+        {creativeIdeas.length > 0 && (
+          <div className="mx-3 mb-3 px-2.5 py-2 liquid-card flex-shrink-0">
+            <div className="flex items-center justify-between text-[10px]">
+              <span style={{ color: theme.colors.textMuted }}>共 {creativeIdeas.length} 個創意</span>
+              <button
+                onClick={() => setView('local-library')}
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+                title="管理全部"
+              >
+                管理全部 →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 下半部分：RH-AI 应用 (Flex-1) */}
+      <div className="flex-1 flex flex-col min-h-0 bg-[#1e1e24] w-full flex-shrink-0 border-t border-white/10">
+        <RHAppsLibrary onSelectApp={onSelectApp} className="" disableScroll={false} />
       </div>
     </aside>
   );
@@ -1751,8 +1749,18 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState<number | null>(null);
 
-  // 導覽列狀態
-  const [activeNavPanel, setActiveNavPanel] = useState<'reverse' | 'angle' | 'runninghub' | 'batch-cover' | null>(null);
+  // 導覽列狀態 (多選)
+  const [activeNavPanels, setActiveNavPanels] = useState<('reverse' | 'angle' | 'runninghub' | 'batch-cover')[]>([]);
+
+  const handleNavPanelToggle = (panel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover') => {
+    setActiveNavPanels(prev => {
+      if (prev.includes(panel)) {
+        return prev.filter(p => p !== panel);
+      } else {
+        return [...prev, panel];
+      }
+    });
+  };
 
   // 視圖狀態
   const [view, setView] = useState<'editor' | 'local-library' | 'interior-design' | 'runninghub' | 'file-explorer'>('editor');
@@ -1843,6 +1851,7 @@ const App: React.FC = () => {
   const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking'); // 后端连接状态
 
   const [rhUploadFile, setRhUploadFile] = useState<File | null>(null); // RunningHub 上传外部文件
+  const [autoRunRHTask, setAutoRunRHTask] = useState<{ prompt: string; timestamp: number } | null>(null); // Auto-run RH task state
 
   // 救援孤兒任務：對桌面上壞掉的 RH 任務，直接查 API 救回圖片
   const recoverOrphanedTasks = async (items: DesktopItem[]) => {
@@ -3746,216 +3755,337 @@ const App: React.FC = () => {
       {/* 側邊導覽列 */}
       {view !== 'interior-design' && view !== 'runninghub' && (
         <SideNavBar
-          activePanel={activeNavPanel}
-          onSelectPanel={setActiveNavPanel}
+          activePanels={activeNavPanels}
+          onTogglePanel={handleNavPanelToggle}
         />
       )}
 
-      {/* 條件渲染的側邊功能面板 */}
-      {view !== 'interior-design' && view !== 'runninghub' && activeNavPanel && (
-        <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+      {/* 條件渲染的側邊功能面板 - 支援多視窗並排 */}
+      {view !== 'interior-design' && view !== 'runninghub' && activeNavPanels.length > 0 && (
+        <div className="flex h-full z-10 relative">
 
           {/* 圖片反推面板 */}
-          <div className={activeNavPanel === 'reverse' ? 'block h-full overflow-hidden' : 'hidden'}>
-            <ReversePromptPanel
-              files={files}
-              onPromptGenerate={handleSetPrompt}
-            />
-          </div>
+          {activeNavPanels.includes('reverse') && (
+            <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+              <ReversePromptPanel
+                files={files}
+                onPromptGenerate={handleSetPrompt}
+              />
+            </div>
+          )}
 
           {/* 角度控制面板 */}
-          <div className={activeNavPanel === 'angle' ? 'block h-full overflow-hidden' : 'hidden'}>
-            <CameraAngleController
-              onApply={(newPrompt) => {
-                handleSetPrompt(prev => {
-                  const sksIndex = prev.indexOf('<sks>');
-                  if (sksIndex !== -1) {
-                    const before = prev.substring(0, sksIndex).trim();
-                    const cleanBefore = before.replace(/,\s*$/, '');
-                    return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
-                  }
-                  const trimmed = prev.trim();
-                  if (!trimmed) return newPrompt;
-                  if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
-                  return trimmed + ', ' + newPrompt;
-                });
-              }}
-            />
-          </div>
+          {activeNavPanels.includes('angle') && (
+            <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+              <CameraAngleController
+                onApply={(newPrompt) => {
+                  handleSetPrompt(prev => {
+                    const sksIndex = prev.indexOf('<sks>');
+                    if (sksIndex !== -1) {
+                      const before = prev.substring(0, sksIndex).trim();
+                      const cleanBefore = before.replace(/,\s*$/, '');
+                      return (cleanBefore ? cleanBefore + ', ' : '') + newPrompt;
+                    }
+                    const trimmed = prev.trim();
+                    if (!trimmed) return newPrompt;
+                    if (trimmed.endsWith(',')) return trimmed + ' ' + newPrompt;
+                    return trimmed + ', ' + newPrompt;
+                  });
+                }}
+              />
+            </div>
+          )}
 
           {/* 批量封面面板 */}
-          <div className={activeNavPanel === 'batch-cover' ? 'block h-full overflow-hidden' : 'hidden'}>
-            <BatchCoverContainer
-              status={status}
-              setStatus={setStatus}
-              setError={setError}
-              apiKey={apiKey}
-              thirdPartyApiConfig={thirdPartyApiConfig}
-              desktopItems={desktopItems}
-              setDesktopItems={setDesktopItems}
-              safeDesktopSave={safeDesktopSave}
-              files={files}
-              aspectRatio={aspectRatio}
-              imageSize={imageSize}
-            />
-          </div>
+          {activeNavPanels.includes('batch-cover') && (
+            <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+              <BatchCoverContainer
+                status={status}
+                setStatus={setStatus}
+                setError={setError}
+                apiKey={apiKey}
+                thirdPartyApiConfig={thirdPartyApiConfig}
+                desktopItems={desktopItems}
+                setDesktopItems={setDesktopItems}
+                safeDesktopSave={safeDesktopSave}
+                files={files}
+                aspectRatio={aspectRatio}
+                imageSize={imageSize}
+                onRunRunningHub={(prompts) => {
+                  if (prompts.length > 0) {
+                    if (!activeNavPanels.includes('runninghub')) {
+                      handleNavPanelToggle('runninghub');
+                    }
+                    // Use setTimeout to ensure panel is active or state update cycle completes if needed
+                    setTimeout(() => {
+                      setAutoRunRHTask({
+                        prompt: prompts.join('\n\n'),
+                        timestamp: Date.now()
+                      });
+                    }, 100);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Mini RunningHub 面板 */}
-          <div className={activeNavPanel === 'runninghub' ? 'block w-full h-full overflow-hidden' : 'hidden'}>
-            <MiniRunningHub
-              onHistoryUpdate={loadDataFromLocal}
-              externalFile={rhUploadFile}
-              onTaskSuccess={handleRunningHubSuccess}
-              activeAppId={activeRHAppId}
-              onTaskStart={async (taskId, promptValue) => {
-                const pos = findNextFreePosition();
-                const placeholder: DesktopImageItem = {
-                  id: `rh-${taskId}`,
-                  type: 'image',
-                  name: `RH: ${promptValue.slice(0, 10)}...`,
-                  position: pos,
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
-                  imageUrl: '',
-                  prompt: promptValue,
-                  model: 'RunningHub',
-                  isThirdParty: true,
-                  isLoading: true,
-                };
+          {activeNavPanels.includes('runninghub') && (
+            <div className="flex-shrink-0 w-[280px] border-r border-white/5 bg-black/20 backdrop-blur-sm flex flex-col h-full transition-all duration-300 animate-in slide-in-from-left-2">
+              <MiniRunningHub
+                onHistoryUpdate={loadDataFromLocal}
+                externalFile={rhUploadFile}
+                onTaskSuccess={handleRunningHubSuccess}
+                activeAppId={activeRHAppId}
+                autoRunTask={autoRunRHTask}
+                onTaskStart={async (taskId, promptValue) => {
+                  const placeholderId = `rh-${taskId}`;
+                  const timestamp = Date.now();
 
-                setDesktopItems(prev => {
-                  const items = [...prev, placeholder];
-                  safeDesktopSave(items);
-                  return items;
-                });
+                  setDesktopItems(prev => {
+                    // Check if already exists
+                    if (prev.some(i => i.id === placeholderId)) return prev;
 
-                const monitorTask = async () => {
-                  try {
-                    const { queryTaskOutputs } = await import('./src/services/runningHub/api');
-                    const { API_CODE } = await import('./src/services/runningHub/types');
-                    const savedApiKey = localStorage.getItem('rh_api_key') || '';
+                    // Compute position inside functional update to get LATEST state
+                    const gridSize = 100;
+                    const maxCols = 8;
+                    const occupied = new Set(
+                      prev.map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
+                    );
 
-                    if (!savedApiKey) return;
+                    let pos = { x: 0, y: 0 };
+                    let found = false;
+                    for (let y = 0; y < 100; y++) {
+                      for (let x = 0; x < maxCols; x++) {
+                        if (!occupied.has(`${x},${y}`)) {
+                          pos = { x: x * gridSize, y: y * gridSize };
+                          found = true;
+                          break;
+                        }
+                      }
+                      if (found) break;
+                    }
 
-                    const poll = async () => {
-                      try {
-                        const response = await queryTaskOutputs(savedApiKey, taskId);
-                        if (response.code === API_CODE.SUCCESS) {
-                          const rawData = response.data;
-                          let outputs: { fileUrl: string }[] = [];
+                    const placeholder: DesktopImageItem = {
+                      id: placeholderId,
+                      type: 'image',
+                      name: `RH: ${promptValue.slice(0, 10)}...`,
+                      position: pos,
+                      createdAt: timestamp,
+                      updatedAt: timestamp,
+                      imageUrl: '', // Blank initially
+                      prompt: promptValue,
+                      model: 'RunningHub',
+                      isThirdParty: true,
+                      isLoading: true,
+                    };
 
-                          if (Array.isArray(rawData)) {
-                            outputs = rawData.map((item: any) => {
-                              if (item && typeof item.fileUrl === 'string') return { fileUrl: item.fileUrl };
-                              if (typeof item === 'string') return { fileUrl: item };
-                              if (item && typeof item.url === 'string') return { fileUrl: item.url };
-                              return null;
-                            }).filter(Boolean) as { fileUrl: string }[];
-                          } else if (rawData && typeof rawData === 'object') {
-                            if (Array.isArray(rawData.outputs)) {
-                              outputs = rawData.outputs.map((item: any) => {
-                                if (typeof item === 'string') return { fileUrl: item };
+                    const newItems = [...prev, placeholder];
+                    safeDesktopSave(newItems);
+                    return newItems;
+                  });
+
+                  // 2. Start Polling Monitor
+                  const monitorTask = async () => {
+                    try {
+                      const { queryTaskOutputs } = await import('./src/services/runningHub/api');
+                      const { API_CODE } = await import('./src/services/runningHub/types');
+                      const savedApiKey = localStorage.getItem('rh_api_key') || '';
+
+                      if (!savedApiKey) return;
+
+                      let attempts = 0;
+                      const maxAttempts = 300; // ~10-15 mins max listening
+
+                      const poll = async () => {
+                        if (attempts++ > maxAttempts) return;
+
+                        try {
+                          const response = await queryTaskOutputs(savedApiKey, taskId);
+
+                          if (response.code === API_CODE.SUCCESS) {
+                            const rawData = response.data;
+                            let outputs: { fileUrl: string }[] = [];
+
+                            // Normalizing Output Format
+                            if (Array.isArray(rawData)) {
+                              outputs = rawData.map((item: any) => {
                                 if (item && typeof item.fileUrl === 'string') return { fileUrl: item.fileUrl };
+                                if (typeof item === 'string') return { fileUrl: item };
                                 if (item && typeof item.url === 'string') return { fileUrl: item.url };
                                 return null;
                               }).filter(Boolean) as { fileUrl: string }[];
-                            } else if (typeof rawData.fileUrl === 'string') {
-                              outputs = [{ fileUrl: rawData.fileUrl }];
+                            } else if (rawData && typeof rawData === 'object') {
+                              if (Array.isArray(rawData.outputs)) {
+                                outputs = rawData.outputs.map((item: any) => {
+                                  if (typeof item === 'string') return { fileUrl: item };
+                                  if (item && typeof item.fileUrl === 'string') return { fileUrl: item.fileUrl };
+                                  if (item && typeof item.url === 'string') return { fileUrl: item.url };
+                                  return null;
+                                }).filter(Boolean) as { fileUrl: string }[];
+                              } else if (typeof rawData.fileUrl === 'string') {
+                                outputs = [{ fileUrl: rawData.fileUrl }];
+                              }
                             }
-                          }
 
-                          if (outputs.length > 0) {
-                            const gridSize = 100;
-                            const maxCols = 10;
-                            const findFreePositionInItems = (items: DesktopItem[], excludeId?: string) => {
-                              const occupiedPositions = new Set(
-                                items
-                                  .filter(item => {
-                                    if (excludeId && item.id === excludeId) return false;
-                                    const isInFolder = items.some(
-                                      other => other.type === 'folder' && (other as any).itemIds?.includes(item.id)
-                                    );
-                                    return !isInFolder;
-                                  })
-                                  .map(item => `${Math.round(item.position.x / gridSize)},${Math.round(item.position.y / gridSize)}`)
-                              );
-                              for (let row = 0; row < 100; row++) {
-                                for (let col = 0; col < maxCols; col++) {
-                                  const key = `${col},${row}`;
-                                  if (!occupiedPositions.has(key)) return { x: col * gridSize, y: row * gridSize };
+                            if (outputs.length > 0) {
+                              console.log('[App] Task Completed. Outputs:', outputs.length);
+
+                              // [Auto-Save & Decode] Process each output
+                              const electronAPI = (window as any).electronAPI;
+                              const processedOutputs: { fileUrl: string; localUrl?: string }[] = [];
+
+                              for (let i = 0; i < outputs.length; i++) {
+                                const output = outputs[i];
+                                let finalUrl = output.fileUrl; // Default to remote URL
+
+                                if (electronAPI?.runningHub?.saveFile) {
+                                  try {
+                                    const fileName = `RH_${taskId.slice(0, 8)}_${Date.now()}_${i + 1}.png`;
+                                    console.log('[App] Saving file:', fileName);
+                                    const saveRes = await electronAPI.runningHub.saveFile(output.fileUrl, fileName, null);
+
+                                    if (saveRes?.success && saveRes.path) {
+                                      console.log('[App] File saved:', saveRes.path);
+                                      finalUrl = `/files/output/${fileName}`;
+
+                                      // Attempt decode
+                                      if (electronAPI.decodeImage) {
+                                        try {
+                                          await new Promise(r => setTimeout(r, 500)); // Wait for FS flush
+                                          const decodeRes = await electronAPI.decodeImage(null, fileName, saveRes.path);
+                                          if (decodeRes?.success && decodeRes.localUrl) {
+                                            console.log('[App] Decode success:', decodeRes.localUrl);
+                                            finalUrl = decodeRes.localUrl;
+                                          } else {
+                                            console.warn('[App] Decode skipped/failed:', decodeRes?.error);
+                                          }
+                                        } catch (decodeErr) {
+                                          console.error('[App] Decode error:', decodeErr);
+                                        }
+                                      }
+                                    } else {
+                                      console.warn('[App] Save failed:', saveRes?.error);
+                                    }
+                                  } catch (saveErr) {
+                                    console.error('[App] Save error:', saveErr);
+                                  }
                                 }
-                              }
-                              return { x: 0, y: 0 };
-                            };
-
-                            for (let i = 0; i < outputs.length; i++) {
-                              const imageUrl = outputs[i].fileUrl;
-                              let saveRes: any = null;
-                              try {
-                                saveRes = await saveToHistory(imageUrl, promptValue, true);
-                              } catch (saveErr) {
-                                console.warn(`[MiniRH] saveToHistory failed for image ${i}:`, saveErr);
+                                processedOutputs.push({ ...output, localUrl: finalUrl });
                               }
 
-                              if (i === 0) {
-                                setDesktopItems(current => current.map(item =>
-                                  item.id === placeholder.id
-                                    ? { ...item, imageUrl: saveRes?.localImageUrl || imageUrl, thumbnailUrl: saveRes?.localThumbnailUrl, isLoading: false, historyId: saveRes?.historyId }
-                                    : item
-                                ));
-                              } else {
-                                const newItem: DesktopImageItem = {
-                                  id: `rh-${taskId}-${i}`,
-                                  type: 'image',
-                                  name: `RH: ${promptValue.slice(0, 10)}... (${i + 1})`,
-                                  position: { x: 0, y: 0 },
-                                  createdAt: Date.now(),
-                                  updatedAt: Date.now(),
-                                  imageUrl: saveRes?.localImageUrl || imageUrl,
-                                  thumbnailUrl: saveRes?.localThumbnailUrl,
-                                  prompt: promptValue,
-                                  model: 'RunningHub',
-                                  isThirdParty: true,
-                                  isLoading: false,
-                                  historyId: saveRes?.historyId,
-                                };
-                                setDesktopItems(current => {
-                                  const freePos = findFreePositionInItems(current);
-                                  return [...current, { ...newItem, position: freePos }];
+                              // Handle Multi-Image Results with processed URLs
+                              setDesktopItems(current => {
+                                // 1. Update the original placeholder with the first image
+                                const updatedItems = current.map(item => {
+                                  if (item.id === placeholderId) {
+                                    return {
+                                      ...item,
+                                      imageUrl: processedOutputs[0]?.localUrl || processedOutputs[0]?.fileUrl,
+                                      isLoading: false,
+                                      loadingError: undefined,
+                                    };
+                                  }
+                                  return item;
                                 });
-                              }
-                              if (saveRes?.historyId) {
-                                setGenerationHistory(prev => [
-                                  { id: saveRes.historyId, imageUrl: saveRes.localImageUrl || imageUrl, prompt: promptValue, createdAt: new Date().toISOString() },
-                                  ...prev
-                                ]);
-                              }
+
+                                // 2. If more than 1 image, create new items for the rest
+                                if (processedOutputs.length > 1) {
+                                  const extraImages = processedOutputs.slice(1);
+                                  const gridSize = 100;
+
+                                  // Helper to find free spots (simple version relative to last)
+                                  // We can't reuse findNextFreePosition inside callback easily without deps.
+                                  // Let's just offset from the original placeholder for simplicity or logic similar to handleStartBatch
+
+                                  // Helper to find free spots dynamically
+                                  const getNextFreePos = (existingItems: DesktopItem[], startX = 0, startY = 0) => {
+                                    const gridSize = 100;
+                                    const maxCols = 8;
+                                    const occupied = new Set(
+                                      existingItems.map(i =>
+                                        `${Math.round(i.position.x / gridSize)},${Math.round(i.position.y / gridSize)}`
+                                      )
+                                    );
+
+                                    let attempts = 0;
+                                    let checkX = Math.round(startX / gridSize); // Start near the placeholder/last item
+                                    let checkY = Math.round(startY / gridSize);
+
+                                    while (attempts < 100) {
+                                      if (!occupied.has(`${checkX},${checkY}`)) {
+                                        return { x: checkX * gridSize, y: checkY * gridSize };
+                                      }
+                                      checkX++;
+                                      if (checkX >= maxCols) {
+                                        checkX = 0;
+                                        checkY++;
+                                      }
+                                      attempts++;
+                                    }
+                                    return { x: 0, y: 0 }; // Fallback
+                                  };
+
+                                  extraImages.forEach((out, idx) => {
+                                    const extraId = `rh-${taskId}-${idx + 1}`;
+                                    if (updatedItems.some(i => i.id === extraId)) return;
+
+                                    // Find next free slot based on CURRENT updatedItems list
+                                    // Start searching from the position of the last item to keep them grouped
+                                    const lastItem = updatedItems[updatedItems.length - 1];
+                                    const newPos = getNextFreePos(updatedItems, lastItem.position.x + 100, lastItem.position.y);
+
+                                    const extraItem: DesktopImageItem = {
+                                      id: extraId,
+                                      type: 'image',
+                                      name: `RH: ${promptValue.slice(0, 10)}... (${idx + 2})`,
+                                      position: newPos,
+                                      createdAt: timestamp + idx + 1,
+                                      updatedAt: timestamp + idx + 1,
+                                      imageUrl: out.localUrl || out.fileUrl, // Use processed local URL
+                                      prompt: promptValue,
+                                      model: 'RunningHub',
+                                      isThirdParty: true,
+                                      isLoading: false
+                                    };
+                                    updatedItems.push(extraItem);
+                                  });
+                                }
+
+                                // Save to backend
+                                safeDesktopSave(updatedItems);
+                                return updatedItems;
+                              });
+
+                              // Call generic success handler if needed
+                              handleRunningHubSuccess(outputs as any);
+
                             }
-                            handleRunningHubSuccess(outputs);
+                          } else if (response.code === API_CODE.FAILED) {
+                            throw new Error(response.msg || 'Task Failed');
+                          } else {
+                            // Still running/queued
+                            setTimeout(poll, 2000);
                           }
-                        } else if (response.code === API_CODE.FAILED) {
-                          throw new Error(response.msg || 'Task Failed');
-                        } else {
-                          setTimeout(poll, 3000);
+                        } catch (err: any) {
+                          console.error('Monitoring failed:', err);
+                          setDesktopItems(current => current.map(item =>
+                            item.id === placeholderId
+                              ? { ...item, isLoading: false, loadingError: err.message || 'Error' }
+                              : item
+                          ));
                         }
-                      } catch (err: any) {
-                        console.error('Monitoring failed:', err);
-                        setDesktopItems(current => current.map(item =>
-                          item.id === placeholder.id
-                            ? { ...item, isLoading: false, loadingError: err.message }
-                            : item
-                        ));
-                      }
-                    };
-                    poll();
-                  } catch (e) {
-                    console.error('Failed to start monitor:', e);
-                  }
-                };
-                monitorTask();
-              }}
-            />
-          </div>
+                      };
+                      poll();
+                    } catch (e) {
+                      console.error('Failed to start monitor:', e);
+                    }
+                  };
+                  monitorTask();
+                }}
+              />
+            </div>
+          )}
 
         </div>
       )}

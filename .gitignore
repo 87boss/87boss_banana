@@ -49,7 +49,9 @@ __pycache__/
 node_modules_trash_01/
 87boss-veo31-ok/
 magic_0116/
-.agent/
+.agent/*
+!.agent/skills/
+!.agent/workflows/
 .qoder/
 
 release/

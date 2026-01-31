@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import BatchCoverPanel from './BatchCoverPanel';
+import { generateCoverPrompts, editImageWithGemini, initializeAiClient } from '../../services/geminiService';
 import { ApiStatus, DesktopItem, DesktopImageItem, ThirdPartyApiConfig } from '../../types';
-import { generateCoverPrompts, editImageWithGemini } from '../../services/geminiService';
-import { saveToHistory } from '../../services/api/history';
 
 interface BatchCoverContainerProps {
     status: ApiStatus;
@@ -16,6 +15,7 @@ interface BatchCoverContainerProps {
     files: File[];
     aspectRatio: string;
     imageSize: string;
+    onRunRunningHub?: (prompts: string[]) => void;
 }
 
 const BatchCoverContainer: React.FC<BatchCoverContainerProps> = ({
@@ -27,155 +27,164 @@ const BatchCoverContainer: React.FC<BatchCoverContainerProps> = ({
     desktopItems,
     setDesktopItems,
     safeDesktopSave,
-    files,
-    aspectRatio,
-    imageSize,
+    onRunRunningHub
 }) => {
-    return (
-        <BatchCoverPanel
-            isLoading={status === ApiStatus.Loading || status === ApiStatus.Generating}
 
-            // 1. 生成提示詞
-            onGenerate={async (data) => {
-                setStatus(ApiStatus.Generating);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // API Configurations
+    // We reuse props for config where possible, or local state if we want to override?
+    // The original container used props for config. Let's stick to that for consistency with App.tsx
+    // But we also need to handle the new "Traditional Chinese" prompt generation which might need different handling.
+
+    // We actually don't need local apiKey state if it's passed in.
+    // But initializeAiClient might need to be called.
+
+    useEffect(() => {
+        if (apiKey) {
+            initializeAiClient(apiKey);
+        }
+    }, [apiKey]);
+
+    const handleGeneratePrompts = async (data: any) => {
+        setIsGenerating(true);
+        setStatus(ApiStatus.Generating);
+        try {
+            // Re-initialize to ensure latest config/key
+            if (apiKey) initializeAiClient(apiKey);
+
+            // Generate prompts
+            const prompts = await generateCoverPrompts(
+                data.theme,
+                data.title,
+                data.subtitle,
+                data.footer,
+                data.textEffect || '無特效 (None)',
+                data.count,
+                "", // scene removed
+                "", // plot removed
+                data.media,
+                apiKey,
+                thirdPartyApiConfig
+            );
+            setStatus(ApiStatus.Success);
+            return prompts;
+        } catch (error) {
+            console.error("Prompt Generation Error:", error);
+            alert("生成失敗: " + (error instanceof Error ? error.message : String(error)));
+            setError(error instanceof Error ? error.message : String(error));
+            setStatus(ApiStatus.Error);
+            return [];
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleStartBatch = async (prompts: string[], mode: 'banana' | 'runninghub') => {
+        if (!prompts || prompts.length === 0) return;
+
+        if (mode === 'runninghub') {
+            if (onRunRunningHub) {
+                onRunRunningHub(prompts);
+            } else {
+                alert("RunningHub integration not connected!");
+            }
+            return;
+        }
+
+        // Banana Mode
+        setIsGenerating(true);
+        // setStatus(ApiStatus.Generating); // Optional, might lock UI
+        try {
+            // 準備生成
+            const gridSize = 100;
+            const maxCols = 10;
+            const occupied = new Set(desktopItems.map(i => `${Math.round(i.position.x / gridSize)},${Math.round(i.position.y / gridSize)}`));
+
+            const findFreePosition = (ignoreSet: Set<string>) => {
+                for (let r = 0; r < 100; r++) {
+                    for (let c = 0; c < maxCols; c++) {
+                        const key = `${c},${r}`;
+                        if (!occupied.has(key) && !ignoreSet.has(key)) {
+                            return { x: c * gridSize, y: r * gridSize };
+                        }
+                    }
+                }
+                return { x: 0, y: 0 };
+            };
+
+            const tempOccupied = new Set<string>();
+            const newPlaceholders: DesktopImageItem[] = [];
+
+            // 1. Create Placeholders
+            prompts.forEach((promptText, i) => {
+                const pos = findFreePosition(tempOccupied);
+                tempOccupied.add(`${Math.round(pos.x / gridSize)},${Math.round(pos.y / gridSize)}`);
+
+                const placeholder: DesktopImageItem = {
+                    id: `cover-${Date.now()}-${i}`,
+                    type: 'image',
+                    name: `Batch ${i + 1}`,
+                    position: pos,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    imageUrl: '',
+                    prompt: promptText,
+                    model: thirdPartyApiConfig.enabled ? 'nano-banana-2' : 'Gemini',
+                    isThirdParty: thirdPartyApiConfig.enabled,
+                    isLoading: true
+                };
+                newPlaceholders.push(placeholder);
+            });
+
+            // Update Desktop
+            const nextItems = [...desktopItems, ...newPlaceholders];
+            setDesktopItems(nextItems);
+            safeDesktopSave(nextItems);
+
+            // 2. Execute Async
+            newPlaceholders.forEach(async (item) => {
                 try {
-                    const { theme, title, subtitle, footer, count, scene, plot, media } = data as any; // Cast to any if interface is not shared, or rely on inference
-                    console.log('[Batch Cover] Generating prompts...', data);
-
-                    const prompts = await generateCoverPrompts(
-                        theme, title, subtitle, footer, count,
-                        scene, plot, media,
-                        apiKey, thirdPartyApiConfig
+                    const result = await editImageWithGemini(
+                        [],
+                        item.prompt || '',
+                        { aspectRatio: '1:1', imageSize: '1K' } // Default
                     );
 
-                    console.log('[Batch Cover] Generated prompts:', prompts);
-
-                    if (!prompts || prompts.length === 0) {
-                        throw new Error("No prompts generated");
+                    if (result.imageUrl) {
+                        // Save to history? (Optional, existing code did it)
+                        // Update item
+                        setDesktopItems(current => current.map(i =>
+                            i.id === item.id
+                                ? { ...i, imageUrl: result.imageUrl!, isLoading: false }
+                                : i
+                        ));
+                        // Note: safeDesktopSave call needed after update? 
+                        // For now relies on auto-save or effect in App.
                     }
-
-                    setStatus(ApiStatus.Success);
-                    return prompts;
-                } catch (e: any) {
-                    console.error('[Batch Cover] Failed:', e);
-                    setError(e.message);
-                    setStatus(ApiStatus.Error);
+                } catch (e) {
+                    console.error("Item generation failed", e);
+                    setDesktopItems(current => current.map(i =>
+                        i.id === item.id
+                            ? { ...i, isLoading: false, loadingError: 'Failed' }
+                            : i
+                    ));
                 }
-            }}
+            });
 
-            // 2. 開始執行 (並行生成)
-            // 2. 開始執行 (並行生成)
-            onStartBatch={async (prompts) => {
-                // DON'T set global status to Generating here, to keep the UI unlocked for the next task.
-                // The individual items have their own isLoading state.
-                try {
-                    // 準備生成
-                    const gridSize = 100;
-                    const maxCols = 10;
-                    const baseItemName = "Batch";
+        } catch (error) {
+            console.error("Batch Execution Error:", error);
+            alert("批量執行部分失敗");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
-                    // 1. 同步計算所有占位符 (Create placeholders synchronously using current desktopItems prop)
-                    // Note: We use the prop 'desktopItems' here. If state updates are pending, this might have a slight race,
-                    // but for this button click it is generally safe.
-                    const currentItems = desktopItems; // capture current prop
-                    const occupied = new Set(currentItems.map(i => `${Math.round(i.position.x / gridSize)},${Math.round(i.position.y / gridSize)}`));
-
-                    const findFreePosition = (ignoreSet: Set<string>) => {
-                        for (let r = 0; r < 100; r++) {
-                            for (let c = 0; c < maxCols; c++) {
-                                const key = `${c},${r}`;
-                                if (!occupied.has(key) && !ignoreSet.has(key)) {
-                                    return { x: c * gridSize, y: r * gridSize };
-                                }
-                            }
-                        }
-                        return { x: 0, y: 0 };
-                    };
-
-                    const newPlaceholders: DesktopImageItem[] = [];
-                    const tempOccupied = new Set<string>();
-
-                    prompts.forEach((promptText, i) => {
-                        const taskId = Date.now() + i;
-                        const pos = findFreePosition(tempOccupied);
-                        tempOccupied.add(`${Math.round(pos.x / gridSize)},${Math.round(pos.y / gridSize)}`);
-
-                        const placeholder: DesktopImageItem = {
-                            id: `cover-${taskId}`,
-                            type: 'image',
-                            name: `Cover ${i + 1}: ${baseItemName}`,
-                            position: pos,
-                            createdAt: Date.now(),
-                            updatedAt: Date.now(),
-                            imageUrl: '',
-                            prompt: promptText,
-                            model: thirdPartyApiConfig.enabled ? 'nano-banana-2' : 'Gemini',
-                            isThirdParty: thirdPartyApiConfig.enabled,
-                            isLoading: true
-                        };
-                        newPlaceholders.push(placeholder);
-                    });
-
-                    // 2. 一次性更新状态 (Update state once)
-                    const nextItems = [...currentItems, ...newPlaceholders];
-                    setDesktopItems(nextItems);
-                    safeDesktopSave(nextItems);
-
-                    // 3. 并发执行所有请求 (Execute concurrently using the local newPlaceholders array)
-                    // We do NOT await this Promise.all, so the UI returns immediately.
-                    const generatePromises = prompts.map(async (promptText, i) => {
-                        const placeholder = newPlaceholders[i]; // Now this is safe!
-                        const taskId = placeholder.id;
-
-                        try {
-                            const result = await editImageWithGemini(
-                                files,
-                                promptText,
-                                {
-                                    aspectRatio: aspectRatio,
-                                    imageSize: imageSize
-                                }
-                            );
-
-                            // 保存並更新
-                            const saveRes = await saveToHistory(
-                                result.imageUrl!,
-                                promptText,
-                                true,
-                                thirdPartyApiConfig
-                            );
-
-                            setDesktopItems(current => current.map(item =>
-                                item.id === taskId
-                                    ? {
-                                        ...item,
-                                        imageUrl: saveRes.localImageUrl || result.imageUrl!,
-                                        thumbnailUrl: saveRes.localThumbnailUrl,
-                                        isLoading: false,
-                                        historyId: saveRes.historyId
-                                    }
-                                    : item
-                            ));
-                        } catch (err: any) {
-                            console.error(`[Batch Cover] Image ${i + 1} failed:`, err);
-                            setDesktopItems(current => current.map(item =>
-                                item.id === taskId
-                                    ? { ...item, isLoading: false, loadingError: err.message || 'Failed' }
-                                    : item
-                            ));
-                        }
-                    });
-
-                    // Fire and forget (in the background)
-                    Promise.all(generatePromises).then(() => {
-                        console.log('[Batch Cover] All background tasks completed');
-                    });
-
-                } catch (e: any) {
-                    console.error('[Batch Cover] Failed to start:', e);
-                    setError(e.message);
-                }
-            }}
+    return (
+        <BatchCoverPanel
+            onGenerate={handleGeneratePrompts}
+            onStartBatch={handleStartBatch}
+            isLoading={isGenerating}
         />
     );
 };

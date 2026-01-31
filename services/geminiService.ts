@@ -1173,6 +1173,7 @@ export const generateCoverPrompts = async (
   title: string,
   subtitle: string,
   footer: string,
+  textEffect: string,
   count: number,
   scene: string,
   plot: string,
@@ -1188,58 +1189,112 @@ export const generateCoverPrompts = async (
 
   const modelName = 'gemini-3-pro-image-preview'; // Matching user request/reference
 
-  const systemPrompt = `You are an expert AI Art Director specializing in cover design and typography.
+  // Dynamic check for text constraints
+  const hasTitle = title && title.trim().length > 0;
+  const hasSubtitle = subtitle && subtitle.trim().length > 0;
+  const hasFooter = footer && footer.trim().length > 0;
+
+  const titleInstruction = hasTitle
+    ? `- Main Title: "${title}"`
+    : `- Main Title: [NONE] (Do NOT include any title text)`;
+
+  const subtitleInstruction = hasSubtitle
+    ? `- Subtitle: "${subtitle}"`
+    : `- Subtitle: [NONE] (Do NOT include any subtitle text)`;
+
+  const footerInstruction = hasFooter
+    ? `- Footer text: "${footer}"`
+    : `- Footer text: [NONE] (Do NOT include any footer text)`;
+
+  // Build the text rendering instruction dynamically
+  let textRenderingInstruction = `5. **CRITICAL: TEXT RENDERING**: `;
+  if (!hasTitle && !hasSubtitle && !hasFooter) {
+    textRenderingInstruction += `You MUST explicitly instruct the image generator NOT to render any text. The image should be text-free.`;
+  } else {
+    textRenderingInstruction += `You MUST explicitly instruct the image generator to RENDER the text ONLY if provided:\n`;
+    if (hasTitle) {
+      textRenderingInstruction += `   - **Title**: Include "${title}" written in bold typography. Apply the "${textEffect}" effect if applicable.\n`;
+    } else {
+      textRenderingInstruction += `   - **Title**: Do NOT include any main title text.\n`;
+    }
+
+    if (hasSubtitle) {
+      textRenderingInstruction += `   - **Subtitle**: Include "${subtitle}" in smaller font.\n`;
+    }
+
+    if (hasFooter) {
+      textRenderingInstruction += `   - **Footer**: Include "${footer}" at the bottom.\n`;
+    }
+  }
+
+  // Handle "Random" style logic
+  let styleInstruction = `3. **Magazine Style**: The user has selected the magazine style "${media}". Ensure the generated image strictly follows the aesthetic, layout, and visual language of this specific magazine.`;
+  if (media === 'Random Magazine Style') {
+    styleInstruction = `3. **Magazine Style**: You MUST randomly check a high-end magazine style (e.g. Vogue, Kinfolk, Time, Brutus, etc.) for EACH prompt. Ensure every prompt has a DIFFERENT, distinct magazine style.`;
+  }
+
+  const systemPrompt = `You are an expert AI Art Director specializing in HIGH-END MAGAZINE COVER design.
 Your task is to generate ${count} distinct, high-quality AI image prompts based on the following metadata:
-- Theme/Style: "${theme}"
-- Scene Context: "${scene}"
-- Story/Plot: "${plot}"
-- Target Media Platform: "${media}"
-- Main Title: "${title}"
-- Subtitle: "${subtitle}"
-- Footer text: "${footer}"
+- Theme/Style/Context: "${theme}"
+- Magazine Style: "${media}"
+${titleInstruction}
+${subtitleInstruction}
+${footerInstruction}
+- Text Effect: "${textEffect}"
 
 Guidelines:
-1. Each prompt must describe a COVER ART VISUAL effectively.
-2. Incorporate the "Theme" into the visual style (e.g., minimalist, cyberpunk, watercolor, etc.).
-3. **Context Integration**: Use the "${scene}" and "${plot}" to create a relevant background, atmosphere, and subject matter that aligns with the story.
-4. **Media Optimization**: This is for "${media}". Ensure the composition and visual impact are suitable for this platform (e.g., if Instagram, focus on aesthetic impact; if YouTube, focus on clickability).
-5. Mention text placement or composition suitable for a cover.
-6. **CRITICAL: TEXT RENDERING**: You MUST explicitly instruct the image generator to RENDER the text.
-   - Example phrase: "With the title '${title}' written in bold, modern typography at the center."
-   - Example phrase: "Subtitle '${subtitle}' below the main title in smaller font."
-   - Example phrase: "Footer text '${footer}' at the bottom."
-7. Provide variety in composition (close-up, wide shot, centralized).
+1. Each prompt must describe a **MAGAZINE COVER VISUAL**.
+2. Incorporate the "Theme" into the visual style.
+${styleInstruction}
+4. **NO SOCIAL MEDIA BIAS**: Do NOT mention "Instagram", "Social Media", "Post", "Feed", or "Like". This is a MAGAZINE COVER, not a social post.
+${textRenderingInstruction}
+6. Provide variety in composition (close-up, wide shot, centralized).
+7. **LANGUAGE**: The Output Prompts MUST be in **Traditional Chinese (繁體中文)**.
 8. Return ONLY a valid JSON array of strings. No markdown, no "Here are...".
-Example output: ["Prompt 1...", "Prompt 2..."]`;
+Example output: ["一張充滿 VOGUE 時尚感的封面，模特兒身穿...", "復古 TIME 雜誌風格的設計，強調..."]`;
 
   try {
     let resultText = '';
 
     // 1. Third Party Path
     if (useThirdParty) {
-      const response = await fetch(`${thirdPartyConfig!.baseUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${thirdPartyConfig!.apiKey}`
-        },
-        body: JSON.stringify({
-          model: thirdPartyConfig!.chatModel || 'gemini-2.0-flash-exp',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Generate ${count} prompts.` }
-          ],
-          temperature: 0.7
-        })
-      });
+      console.log('[Cover] Generating with Third Party API...', { model: thirdPartyConfig!.chatModel });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('[ThirdParty API Error]', response.status, errText);
-        throw new Error(`ThirdParty API failed (${response.status}): ${errText}`);
+      try {
+        const response = await fetch(`${thirdPartyConfig!.baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${thirdPartyConfig!.apiKey}`
+          },
+          body: JSON.stringify({
+            model: thirdPartyConfig!.chatModel || 'gemini-2.0-flash-exp',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Generate ${count} prompts.` }
+            ],
+            temperature: 0.7
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error('[ThirdParty API Error]', response.status, errText);
+          throw new Error(`ThirdParty API failed (${response.status}): ${errText}`);
+        }
+        const data = await response.json();
+        resultText = data.choices[0].message.content;
+      } catch (e: any) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+          throw new Error('Request timed out (30s)');
+        }
+        throw e;
       }
-      const data = await response.json();
-      resultText = data.choices[0].message.content;
 
     } else {
       // 2. Local Gemini Path (using SDK + 3 Pro)
@@ -1277,6 +1332,57 @@ Example output: ["Prompt 1...", "Prompt 2..."]`;
   } catch (error) {
     console.error("Cover Prompt Generation Failed:", error);
     throw error;
+  }
+};
+
+/**
+ * 翻譯文本到繁體中文
+ */
+export const translateText = async (text: string): Promise<string> => {
+  const useThirdParty = thirdPartyConfig && thirdPartyConfig.enabled && thirdPartyConfig.apiKey;
+
+  // Auto-initialize if needed
+  if (!useThirdParty && !ai) {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+      initializeAiClient(savedKey);
+    }
+  }
+
+  if (!useThirdParty && !ai) {
+    console.warn("AI service not ready for translation, returning original text.");
+    return text;
+  }
+
+  // Simple check if text is already likely Chinese (contains Chinese characters)
+  if (/[\u4e00-\u9fa5]/.test(text)) {
+    return text;
+  }
+
+  const systemPrompt = `You are a professional translator. Translate the following text into Traditional Chinese (Taiwan).
+  - Output ONLY the translated text.
+  - Keep IT terms or specific brand names in English if appropriate, or provide standard translations.
+  - Be concise.`;
+
+  try {
+    let resultText = '';
+    if (useThirdParty) {
+      resultText = await chatWithThirdPartyApi(systemPrompt, text);
+    } else {
+      const model = 'gemini-2.0-flash-exp'; // Fast model for translation
+      const response = await withRetry(() =>
+        ai!.models.generateContent({
+          model: model,
+          contents: { parts: [{ text: `Translate to Traditional Chinese: ${text}` }] },
+          config: { systemInstruction: systemPrompt },
+        })
+      );
+      resultText = response.text || text;
+    }
+    return resultText.trim();
+  } catch (error) {
+    console.error("Translation failed:", error);
+    return text;
   }
 };
 

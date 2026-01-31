@@ -27,7 +27,7 @@ router.post('/save-output', async (req, res) => {
     return res.status(400).json({ success: false, error: '缺少图片数据' });
   }
 
-  const result = FileHandler.saveImage(imageData, config.OUTPUT_DIR, filename);
+  const result = FileHandler.saveImage(imageData, config.OUTPUT_DIR, filename, 'output');
 
   // 异步生成缩略图（不阻塞主流程）
   if (result.success && result.data?.path) {
@@ -49,7 +49,7 @@ router.post('/save-input', async (req, res) => {
     return res.status(400).json({ success: false, error: '缺少图片数据' });
   }
 
-  const result = FileHandler.saveImage(imageData, config.INPUT_DIR, filename);
+  const result = FileHandler.saveImage(imageData, config.INPUT_DIR, filename, 'input');
 
   // 异步生成缩略图
   if (result.success && result.data?.path) {
@@ -167,7 +167,7 @@ router.post('/download-remote', async (req, res) => {
     // I need to update fileHandler.js to parse video as well.
 
     // 保存到output目录
-    const result = FileHandler.saveImage(dataUrl, config.OUTPUT_DIR, filename);
+    const result = FileHandler.saveImage(dataUrl, config.OUTPUT_DIR, filename, 'output');
 
     // 生成缩略图 (await blocking to ensure frontend can load it immediately)
     let thumbnailData = null;
@@ -194,6 +194,23 @@ router.post('/download-remote', async (req, res) => {
   } catch (error) {
     console.error('[Download] 下载远程图片失败:', error.message);
     res.status(500).json({ success: false, error: `下载失败: ${error.message}` });
+  }
+});
+
+// 生成单个缩略图
+router.post('/generate-thumbnail', async (req, res) => {
+  const { path: filePath, sourceDir } = req.body;
+
+  if (!filePath) {
+    return res.status(400).json({ success: false, error: '缺少文件路径' });
+  }
+
+  try {
+    const result = await ThumbnailGenerator.generate(filePath, sourceDir || 'output');
+    res.json(result);
+  } catch (error) {
+    console.error('[Thumbnail] 生成失败:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

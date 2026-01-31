@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Box, CheckCircle } from "lucide-react";
 import { getTranslation, rhTranslations } from "../../utils/rhTranslations";
 import { simplifiedToTraditional } from "../../utils/cn2tw";
+import { getWebappDetail } from "../../services/runningHub/api";
+import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SavedApp {
     id: string;
     name: string;
+    iconUrl?: string;
     timestamp: number;
 }
 
@@ -44,6 +47,94 @@ export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, class
         };
     }, []);
 
+
+
+    // [NEW] API Key for Sync
+    const getStoredApiKey = () => localStorage.getItem('rh_api_key') || '';
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    // [NEW] Sync Names Logic
+    const handleSyncNames = async () => {
+        const apiKey = getStoredApiKey();
+        if (!apiKey) {
+            alert(getTranslation('labels.configureApiKey'));
+            return;
+        }
+
+        setIsSyncing(true);
+        const stored = localStorage.getItem('rh_saved_apps');
+        const currentApps: SavedApp[] = stored ? JSON.parse(stored) : [];
+        let updatedCount = 0;
+
+        // Deep copy to modify
+        const updatedApps = [...currentApps];
+
+        try {
+            for (let i = 0; i < updatedApps.length; i++) {
+                const app = updatedApps[i];
+                try {
+                    const detail = await getWebappDetail(apiKey, app.id);
+                    // [NEW] Logic: Extract name from description (strip HTML) first
+                    let newName = '';
+                    if (detail.description && detail.description.trim()) {
+                        newName = detail.description.replace(/<[^>]*>/g, '').trim();
+                    }
+
+                    if (!newName && detail.webappName) {
+                        newName = detail.webappName;
+                    }
+
+                    if (newName) {
+                        // Priority: Mapped -> (Simplified->Traditional of extracted name)
+                        const mappedName = (rhTranslations.appNames as Record<string, string>)[newName];
+                        const localizedName = mappedName || simplifiedToTraditional(newName);
+
+                        let hasChange = false;
+                        if (localizedName && localizedName !== app.name) {
+                            updatedApps[i].name = localizedName;
+                            hasChange = true;
+                        }
+
+                        // [NEW] Logic: Sync Icon URL from covers
+                        let newIconUrl = app.iconUrl;
+                        if (detail.covers && detail.covers.length > 0) {
+                            newIconUrl = detail.covers[0].thumbnailUri || detail.covers[0].url || '';
+                        }
+
+                        if (newIconUrl !== app.iconUrl) {
+                            updatedApps[i].iconUrl = newIconUrl;
+                            hasChange = true;
+                        }
+
+                        if (hasChange) {
+                            updatedCount++;
+                            console.log(`[RHAppsLibrary] Updated app ${app.id}: name=${localizedName}, icon=${!!newIconUrl}`);
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`[RHAppsLibrary] Failed to sync app ${app.id}`, err);
+                }
+                // Small delay to avoid rate limits
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            if (updatedCount > 0) {
+                localStorage.setItem('rh_saved_apps', JSON.stringify(updatedApps));
+                setSavedApps(updatedApps);
+                window.dispatchEvent(new Event('rh_apps_updated'));
+                alert(getTranslation('labels.syncComplete', { count: updatedCount }));
+            } else {
+                alert(getTranslation('labels.syncNoChanges'));
+            }
+
+        } catch (e) {
+            console.error('Sync failed:', e);
+            alert(getTranslation('labels.syncFailed'));
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const handleDelete = (e: React.MouseEvent, appId: string) => {
@@ -75,7 +166,23 @@ export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, class
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
                 <Box className="w-4 h-4 text-purple-400" />
                 <h3 className="text-xs font-semibold">{getTranslation('labels.sidePanelTitle')}</h3>
-                <span className="text-[10px] text-white/40 ml-auto">{savedApps.length} 個</span>
+                <div className="ml-auto flex items-center gap-2">
+                    <span className="text-[10px] text-white/40">{savedApps.length} 個</span>
+
+                    {/* Size=icon button for sync */}
+                    <button
+                        onClick={handleSyncNames}
+                        disabled={isSyncing || savedApps.length === 0}
+                        className="p-1 hover:bg-white/10 rounded text-white/40 hover:text-purple-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title={getTranslation('labels.syncNames')}
+                    >
+                        {isSyncing ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                            <RefreshCw className="w-3.5 h-3.5" />
+                        )}
+                    </button>
+                </div>
             </div>
 
             <div className={`${disableScroll ? '' : 'flex-1 overflow-y-auto custom-scrollbar'} p-2 space-y-2`}>
@@ -91,17 +198,18 @@ export const RHAppsLibrary: React.FC<RHAppsLibraryProps> = ({ onSelectApp, class
                             onClick={() => onSelectApp(app.id)}
                             className="group relative flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer"
                         >
-                            <div className="w-8 h-8 rounded bg-purple-500/20 flex items-center justify-center">
-                                <span className="text-xs font-bold text-purple-400">{app.name.charAt(0).toUpperCase()}</span>
+                            <div className="w-8 h-8 rounded bg-purple-500/20 flex items-center justify-center overflow-hidden">
+                                {app.iconUrl ? (
+                                    <img src={app.iconUrl} alt="icon" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-xs font-bold text-purple-400">{app.name.charAt(0).toUpperCase()}</span>
+                                )}
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-[11px] font-medium truncate text-gray-200 group-hover:text-white">
+                            <div className="flex-1 min-w-0" title={`ID: ${app.id}`}>
+                                <h4 className="text-[11px] font-medium text-gray-200 group-hover:text-white leading-tight line-clamp-2">
                                     {(rhTranslations.appNames as Record<string, string>)[app.name] || simplifiedToTraditional(app.name) || getTranslation('labels.unnamedApp')}
                                 </h4>
-                                <p className="text-[9px] text-gray-500 truncate font-mono mt-0.5">
-                                    ID: {app.id}
-                                </p>
                             </div>
 
                             <button

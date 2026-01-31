@@ -114,12 +114,24 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
             setPreviewUrl(URL.createObjectURL(externalFile));
             setResult(null);
             setDecodedResults(new Map());
+            setSavedPaths([]); // Clear saved paths
             // 如果當前是 idle 或 error 狀態，切換到配置狀態
             if (step === 'idle' || step === 'error' || step === 'success') {
                 setStep('configuring');
             }
         }
     }, [externalFile]);
+
+    // 切換 WebApp 時清空狀態，避免舊結果干擾
+    useEffect(() => {
+        setStep('idle');
+        setResult(null);
+        setDecodedResults(new Map());
+        setSavedPaths([]);
+        setTaskId(null);
+        setError(null);
+        setProgress(0);
+    }, [webappId]);
 
     // 獲取 Webapp 詳情
     const fetchWebappInfo = useCallback(async () => {
@@ -185,6 +197,7 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
             setPreviewUrl(URL.createObjectURL(file));
             setResult(null);
             setDecodedResults(new Map());
+            setSavedPaths([]);
         }
     }, []);
 
@@ -205,117 +218,15 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
         setParamValues(prev => ({ ...prev, [`${nodeId}-${fieldName}`]: value }));
     }, []);
 
-    // 自動保存結果到 output 資料夾 + 添加到歷史記錄
+    // 自動保存邏輯已移除，統壹由 App.tsx 處理存檔與桌面佔位
+    // 這裡保留空實作或移除相關調用
     const autoSaveResults = useCallback(async (outputs: TaskOutput[]) => {
-        // [Force] 強制自動保存，確保有本地檔案供解碼使用
-        // const isAutoSaveEnabled = localStorage.getItem('auto_save_enabled') === 'true';
-        // if (!isAutoSaveEnabled) return;
-        console.log('[MiniRH] Auto-saving results (Forced for decoding)...');
-
-        const electronAPI = (window as any).electronAPI;
-        if (!electronAPI?.runningHub?.saveFile) {
-            console.warn('[MiniRH] runningHub.saveFile not available');
-            return;
+        console.log('[MiniRH] Notify: Task complete, waiting for App.tsx to handle saving...');
+        // 如果有需要通知 UI 刷新，可以在這裡處理，但不要執行檔案系統操作
+        if (onHistoryUpdate) {
+            setTimeout(onHistoryUpdate, 2000); // 延後通知刷新桌面，等待 App.tsx 完成存檔
         }
-
-        const timestamp = Date.now();
-        const paths: string[] = [];
-
-        for (let idx = 0; idx < outputs.length; idx++) {
-            const output = outputs[idx];
-            // [Fix] 從 URL 檢測副檔名（支援影片）
-            const urlExt = output.fileUrl.match(/\.(mp4|webm|mov|avi|png|jpg|jpeg|gif|webp)(?:\?|$)/i)?.[1]?.toLowerCase();
-            const ext = urlExt || 'png';
-            const fileName = `RH_${webappId.slice(0, 8)}_${timestamp}_${idx + 1}.${ext}`;
-
-            try {
-                const result = await electronAPI.runningHub.saveFile(output.fileUrl, fileName, 'runninghub');
-                console.log(`[MiniRH] Saved ${fileName}:`, result);
-                if (result?.success && result.path) {
-                    paths.push(result.path);
-
-                    // 添加到歷史記錄以顯示在桌面
-                    const filename = path.basename(result.path);
-                    // [Fix] Use /files/output/ protocol which maps to the local file system properly for Electron renderer
-                    const localUrl = `/files/output/${filename}`;
-
-                    const historyItem: GenerationHistory = {
-                        id: timestamp + idx, // 使用時間戳 + 索引作為 ID
-                        imageUrl: localUrl,
-                        prompt: `RunningHub: ${appName || webappId}`,
-                        timestamp: timestamp,
-                        model: 'RunningHub',
-                        isThirdParty: true,
-                    };
-
-
-                    try {
-                        await saveHistoryItem(historyItem);
-                        console.log(`[MiniRH] Saved to history: ${historyItem.id}`);
-
-                        // 同步保存到桌面 (後台操作，不觸發 UI 刷新)
-                        try {
-                            // 1. 獲取當前桌面項目
-                            const desktopRes = await desktopApi.getDesktopItems();
-                            if (desktopRes.success && desktopRes.data) {
-                                const currentItems = desktopRes.data;
-
-                                // 2. 創建新桌面項目
-                                const newDesktopItem: DesktopImageItem = {
-                                    id: `img-${historyItem.id}`,
-                                    type: 'image',
-                                    name: historyItem.prompt.slice(0, 20) || 'RunningHub Image',
-                                    imageUrl: historyItem.imageUrl,
-                                    createdAt: historyItem.timestamp,
-                                    updatedAt: historyItem.timestamp,
-                                    position: { x: 100 + (paths.length * 20), y: 100 + (paths.length * 20) }, // 簡單錯開位置
-                                    historyId: historyItem.id,
-                                    prompt: historyItem.prompt,
-                                    model: historyItem.model,
-                                    isThirdParty: true,
-                                    isLoading: false
-                                };
-
-                                // 3. 保存更新後的列表
-                                await desktopApi.saveDesktopItems([...currentItems, newDesktopItem]);
-                                console.log(`[MiniRH] Saved to desktop: ${newDesktopItem.id}`);
-                            }
-                        } catch (desktopErr) {
-                            console.error('[MiniRH] Failed to save to desktop:', desktopErr);
-                        }
-                    } catch (historyErr) {
-                        console.error('[MiniRH] Failed to save history:', historyErr);
-                    }
-                }
-            } catch (err) {
-                console.error(`[MiniRH] Failed to save ${fileName}:`, err);
-            }
-        }
-
-        // 更新 UI state
-        setSavedPaths(paths);
-
-        if (paths.length > 0) {
-            // 通知保存成功
-            if (onResultSaved) {
-                onResultSaved(paths);
-            }
-            // 通知歷史記錄更新 (刷新桌面)
-            if (onHistoryUpdate) {
-                onHistoryUpdate();
-            }
-        }
-
-        console.log('[MiniRH] Auto-save completed:', paths.length, 'files');
-
-        // [UI Fix] 任務完成後清空結果，避免佔用上傳框，並提示已保存到桌面
-        setTimeout(() => {
-            setResult(null); // 回到上傳介面
-            setDecodedResults(new Map());
-            // 移除 alert，改為靜默處理
-            console.log(`[MiniRH] Silent save completed: ${paths.length} files`);
-        }, 1000); // 延遲 1 秒讓用戶看到進度條完成
-    }, [webappId, appName, onResultSaved, onHistoryUpdate]);
+    }, [onHistoryUpdate]);
 
     // 執行工作流
     const handleRun = useCallback(async () => {
@@ -491,7 +402,7 @@ export function MiniRunningHub({ getCanvasImage, onResultSaved, onHistoryUpdate,
             const fileName = `RH_download_${timestamp}_${index ?? 0}.${ext}`;
 
             try {
-                const result = await electronAPI.runningHub.saveFile(url, fileName, 'downloads');
+                const result = await electronAPI.runningHub.saveFile(url, fileName, null);
                 if (result?.success) {
                     console.log('[MiniRH] Downloaded:', result.path);
                     alert(getTranslation('labels.downloadSuccess', { path: result.path }));

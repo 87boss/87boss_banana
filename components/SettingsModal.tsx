@@ -71,6 +71,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen]); // Reload when opened
 
+  // Load current storage path when modal opens
+  useEffect(() => {
+    if (isOpen && (window as any).electronAPI?.getStoragePath) {
+      (window as any).electronAPI.getStoragePath().then((result: any) => {
+        const pathEl = document.getElementById('current-storage-path');
+        if (pathEl && result?.currentPath) {
+          pathEl.textContent = result.isCustom ? result.currentPath : result.currentPath + ' (預設)';
+        }
+      }).catch((err: any) => {
+        console.error('Failed to get storage path:', err);
+      });
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // 切换模式 - 立即更新父组件状态
@@ -254,6 +268,94 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* 分割线 */}
+          <div style={{ borderTop: `1px solid ${colors.border}` }} />
+
+          {/* 自定義保存資料夾 */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: colors.textSecondary }}>自定義保存資料夾</h3>
+
+            <div className="p-4 rounded-xl border space-y-3" style={{ background: colors.bgTertiary, borderColor: colors.border }}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📁</span>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium" style={{ color: colors.textPrimary }}>當前保存位置</h4>
+                  <p className="text-xs truncate mt-0.5" style={{ color: colors.textSecondary }} id="current-storage-path">
+                    正在載入...
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const electronAPI = (window as any).electronAPI;
+                    if (!electronAPI?.selectStoragePath) {
+                      alert('此功能僅在桌面版可用');
+                      return;
+                    }
+                    try {
+                      const result = await electronAPI.selectStoragePath();
+                      if (result.success && result.path) {
+                        // 保存設置
+                        const saveRes = await electronAPI.setStoragePath(result.path);
+
+                        if (saveRes.success) {
+                          // 更新顯示
+                          const pathEl = document.getElementById('current-storage-path');
+                          if (pathEl) pathEl.textContent = result.path;
+
+                          // 提示用戶重啟
+                          setSaveSuccessMessage('保存位置已更新，重啟應用後生效 ⚠️');
+                          setTimeout(() => setSaveSuccessMessage(null), 4000);
+                        } else {
+                          alert('保存設置失敗');
+                        }
+                      }
+                    } catch (err) {
+                      console.error('選擇資料夾失敗:', err);
+                    }
+                  }}
+                  className="flex-1 py-2 text-xs font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                  style={{ background: colors.primary }}
+                >
+                  選擇資料夾
+                </button>
+                <button
+                  onClick={async () => {
+                    const electronAPI = (window as any).electronAPI;
+                    if (!electronAPI?.setStoragePath) {
+                      alert('此功能僅在桌面版可用');
+                      return;
+                    }
+                    try {
+                      // 恢復預設
+                      await electronAPI.setStoragePath(null);
+                      // 重新取得當前路徑
+                      const result = await electronAPI.getStoragePath?.();
+                      if (result?.currentPath) {
+                        const pathEl = document.getElementById('current-storage-path');
+                        if (pathEl) pathEl.textContent = result.currentPath + ' (預設)';
+                      }
+                      setSaveSuccessMessage('已恢復預設位置，重啟應用後生效 ✅');
+                      setTimeout(() => setSaveSuccessMessage(null), 3000);
+                    } catch (err) {
+                      console.error('恢復預設失敗:', err);
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-medium rounded-lg transition-colors hover:opacity-90 border"
+                  style={{ borderColor: colors.border, color: colors.textSecondary, background: 'transparent' }}
+                >
+                  恢復預設
+                </button>
+              </div>
+
+              <p className="text-[10px]" style={{ color: colors.textSecondary }}>
+                💡 更改保存位置後需要重啟應用才會生效
+              </p>
+            </div>
           </div>
 
           {/* 分割线 */}

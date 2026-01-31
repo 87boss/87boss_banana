@@ -1,5 +1,5 @@
 import { FavoriteAppInfo } from './api';
-import { rhAdapter } from './adapter';
+
 
 // --- Storage Keys ---
 const STORAGE_KEY_APP_POOL = 'rh_app_pool';         // 中间区域的应用池（从RH同步+本地管理）
@@ -25,13 +25,19 @@ export const appService = {
      */
     init: async () => {
         try {
-            const config = await rhAdapter.getConfig();
-            if (config.apiKey) localStorage.setItem(STORAGE_KEY_API_KEY, config.apiKey);
-            if (config.accessToken) localStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, config.accessToken);
-            if (config.refreshToken) localStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, config.refreshToken);
-            if (config.autoSave !== undefined) localStorage.setItem('rh_auto_save_enabled', String(config.autoSave));
-            if (config.autoDecode !== undefined) localStorage.setItem('rh_auto_decode_enabled', String(config.autoDecode));
-            console.log('[AppService] Initialized config from backend');
+            const electronAPI = (window as any).electronAPI;
+            if (!electronAPI?.runningHub) return;
+
+            const res = await electronAPI.runningHub.getConfig();
+            if (res?.success) {
+                const config = res.data;
+                if (config.apiKey) localStorage.setItem(STORAGE_KEY_API_KEY, config.apiKey);
+                if (config.accessToken) localStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, config.accessToken);
+                if (config.refreshToken) localStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, config.refreshToken);
+                if (config.autoSave !== undefined) localStorage.setItem('rh_auto_save_enabled', String(config.autoSave));
+                if (config.autoDecode !== undefined) localStorage.setItem('rh_auto_decode_enabled', String(config.autoDecode));
+                console.log('[AppService] Initialized config from backend');
+            }
         } catch (e) {
             console.warn('[AppService] Init failed:', e);
         }
@@ -199,7 +205,7 @@ export const appService = {
 
     setApiKey: (key: string): void => {
         localStorage.setItem(STORAGE_KEY_API_KEY, key);
-        rhAdapter.saveConfig({ apiKey: key });
+        (window as any).electronAPI?.runningHub?.saveConfig({ apiKey: key });
     },
 
     getAccessToken: (): string => {
@@ -250,7 +256,7 @@ export const appService = {
 
     setAutoSaveEnabled: (enabled: boolean): void => {
         localStorage.setItem('rh_auto_save_enabled', String(enabled));
-        rhAdapter.saveConfig({ autoSave: enabled });
+        (window as any).electronAPI?.runningHub?.saveConfig({ autoSave: enabled });
     },
 
     // ===== AUTO DECODE =====
@@ -262,7 +268,7 @@ export const appService = {
 
     setAutoDecodeEnabled: (enabled: boolean): void => {
         localStorage.setItem('rh_auto_decode_enabled', String(enabled));
-        rhAdapter.saveConfig({ autoDecode: enabled });
+        (window as any).electronAPI?.runningHub?.saveConfig({ autoDecode: enabled });
     },
 
     // ===== INSTALLED APPS (Sidebar) =====

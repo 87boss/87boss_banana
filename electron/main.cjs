@@ -1,3 +1,4 @@
+console.log('🚀 [main.cjs] FILE LOADING STARTED...');
 const { app, BrowserWindow, Menu, nativeImage, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -14,6 +15,8 @@ try {
 } catch (e) {
   console.warn('⚠️ chokidar not available:', e.message);
 }
+
+
 
 // RunningHub Settings Helper
 const getRhSettingsPath = () => path.join(app.getPath('userData'), 'rh_settings.json');
@@ -51,17 +54,69 @@ let splashWindow = null;
 let backendServer = null;
 
 // Helper: Get Base Output Path
-// Helper: Get Base Output Path
-// Helper: Get Base Output Path
-function getBaseOutputPath() {
-  // [Fix] Align with backend output path (UserData)
-  const base = global.userDataPath || app.getPath('userData');
-  const projectOutputPath = path.join(base, 'output');
+// Must match the logic in startBackendServer() for backend to serve files correctly
+function logToFile(msg) {
+  try {
+    const logPath = 'C:\\Users\\87boss\\debug_startup.log';
+    fs.appendFileSync(logPath, new Date().toISOString() + ' ' + msg + '\n');
+  } catch (e) { }
+}
 
-  if (!fs.existsSync(projectOutputPath)) {
-    try { fs.mkdirSync(projectOutputPath, { recursive: true }); } catch (e) { }
+function getBaseOutputPath() {
+  logToFile(`[getBaseOutputPath] Called. global.userDataPath: ${global.userDataPath}`);
+
+  // Logic: 
+  // 1. If we have a custom path (loaded from config/global), return it DIRECTLY (no 'output' subfolder).
+  // 2. If we rely on default, append 'output'.
+
+  // Check config first to be sure (as global might be flaky based on previous tasks)
+  let customPath = null;
+  try {
+    const config = loadStorageConfig();
+    if (config && config.customPath) {
+      customPath = config.customPath;
+    }
+  } catch (e) { }
+
+  if (customPath) {
+    logToFile(`[getBaseOutputPath] Using Custom Path: ${customPath}`);
+    if (!fs.existsSync(customPath)) {
+      try { fs.mkdirSync(customPath, { recursive: true }); } catch (e) { }
+    }
+    return customPath;
   }
-  return projectOutputPath;
+
+  // Backup: Check global variable (might be same as customPath)
+  if (global.userDataPath && global.userDataPath !== app.getPath('userData') && global.userDataPath !== process.cwd()) {
+    // Heuristic: if it looks like a custom path, use it directly? 
+    // Better to rely on loadStorageConfig above. but if that failed...
+    // Let's assume global.userDataPath IS the base.
+    // But wait, for default path, global.userDataPath is Documents/87Boss...
+    // We need to know if it is CUSTOM or DEFAULT to decide on appending 'output'.
+    // Since config check above handles Custom, here we assume Default behavior if we reached here?
+    // OR we can check if global.userDataPath matches config.customPath.
+  }
+
+  // If we are here, it means NO custom path found in config. Use Default.
+
+  let baseDataPath;
+  if (!app.isPackaged) {
+    baseDataPath = process.cwd();
+  } else {
+    baseDataPath = path.join(app.getPath('documents'), '87Boss_RunningHub_Data');
+    if (!fs.existsSync(baseDataPath)) {
+      try { fs.mkdirSync(baseDataPath, { recursive: true }); } catch (e) {
+        baseDataPath = app.getPath('userData');
+      }
+    }
+  }
+
+  // Default path ALWAYS has 'output' subfolder
+  const outputPath = path.join(baseDataPath, 'output');
+  if (!fs.existsSync(outputPath)) {
+    try { fs.mkdirSync(outputPath, { recursive: true }); } catch (e) { }
+  }
+  return outputPath;
 }
 
 // 版本更新內容說明（業務向）
@@ -1089,12 +1144,15 @@ function createWindow() {
 }
 
 // 啟動後端服務（直接在主程序中執行，不依賴外部 Node.js）
+// 啟動後端服務（直接在主程序中執行，不依賴外部 Node.js）
 function startBackendServer() {
+  logToFile('[startBackendServer] Starting...');
   return new Promise((resolve, reject) => {
     console.log('🚀 啟動後端服務...');
 
     // 讀取自定義儲存路徑
     const storageConfig = loadStorageConfig();
+    logToFile(`[startBackendServer] Loaded config: ${JSON.stringify(storageConfig)}`);
 
     // [Fix] 統一資料路徑邏輯：
     // 1. 如果有自定義路徑，優先使用
@@ -1104,6 +1162,8 @@ function startBackendServer() {
     if (CONFIG.isDev) {
       baseDataPath = process.cwd();
     }
+
+    logToFile(`[startBackendServer] baseDataPath: ${baseDataPath}`);
 
     // 確保目錄存在
     if (!CONFIG.isDev && !fs.existsSync(baseDataPath)) {
@@ -1117,6 +1177,7 @@ function startBackendServer() {
 
     const userDataPath = storageConfig.customPath || baseDataPath;
     global.userDataPath = userDataPath; // 設置全局變量供 IPC 使用
+    logToFile(`[startBackendServer] SET global.userDataPath = ${userDataPath}`);
 
     console.log('資料儲存路徑:', userDataPath);
 
@@ -1178,8 +1239,8 @@ function startBackendServer() {
         PORT: CONFIG.backendPort.toString(),
         HOST: CONFIG.backendHost,
         IS_ELECTRON: 'true',
-        IS_ELECTRON: 'true',
         USER_DATA_PATH: userDataPath,
+        CUSTOM_OUTPUT_PATH: storageConfig.customPath || '',
         RESOURCES_PATH: process.resourcesPath
       },
       stdio: ['pipe', 'pipe', 'pipe']
@@ -1438,10 +1499,12 @@ function loadStorageConfig() {
   try {
     if (fs.existsSync(configPath)) {
       const data = fs.readFileSync(configPath, 'utf-8');
-      return JSON.parse(data);
+      const config = JSON.parse(data);
+      console.log('📖 [Storage] Loaded config from:', configPath, config);
+      return config;
     }
   } catch (e) {
-    console.log('讀取儲存配置失敗:', e.message);
+    console.error('❌ [Storage] Failed to load config:', e.message);
   }
   return { customPath: null };
 }
@@ -1451,9 +1514,10 @@ function saveStorageConfig(config) {
   const configPath = getStorageConfigPath();
   try {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log('💾 [Storage] Saved config to:', configPath, config);
     return true;
   } catch (e) {
-    console.log('儲存儲存配置失敗:', e.message);
+    console.error('❌ [Storage] Failed to save config:', e.message);
     return false;
   }
 }
@@ -1485,6 +1549,7 @@ ipcMain.handle('select-storage-path', async () => {
 
 // 設定儲存路徑
 ipcMain.handle('set-storage-path', (event, newPath) => {
+  console.log('🔧 [Storage] Setting new path:', newPath);
   try {
     // 驗證路徑是否有效
     if (newPath && !fs.existsSync(newPath)) {
@@ -1494,6 +1559,11 @@ ipcMain.handle('set-storage-path', (event, newPath) => {
     const config = loadStorageConfig();
     config.customPath = newPath || null;
     const saved = saveStorageConfig(config);
+
+    if (saved) {
+      // 更新全局變量，這樣不用重啟也能部分生效 (儘管 backend 需要重啟)
+      global.userDataPath = newPath || app.getPath('userData');
+    }
 
     return {
       success: saved,
@@ -1595,22 +1665,24 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
   }
 
-  // 生產環境：先顯示啟動畫面
-  if (!CONFIG.isDev) {
-    createSplashWindow();
+  // 啟動後端服務（在開發與生產環境皆由 Electron 統一控管，以確保路徑配置一致）
+  try {
+    if (!CONFIG.isDev) {
+      createSplashWindow();
+    }
 
-    try {
-      // 先檢查並釋放埠
-      await killProcessOnPort(CONFIG.backendPort);
-      await startBackendServer();
-    } catch (err) {
-      console.error('❌ 後端服務啟動失敗:', err);
+    // 先檢查並釋放埠
+    await killProcessOnPort(CONFIG.backendPort);
+    await startBackendServer();
+  } catch (err) {
+    console.error('❌ 後端服務啟動失敗:', err);
+    if (!CONFIG.isDev) {
       closeSplashWindow();
       const { dialog } = require('electron');
       dialog.showErrorBox('啟動失敗', `後端服務啟動失敗: ${err.message}`);
       app.quit();
-      return;
     }
+    return;
   }
 
   // 建立主視窗
@@ -1677,58 +1749,6 @@ ipcMain.handle('rh-save-config', async (event, settings) => {
 });
 
 // 3. Save File
-ipcMain.handle('rh-save-file', async (event, { url, name, subDir }) => {
-  try {
-    if (!url || !name) throw new Error('Missing url or name');
-
-    // Determine output path using centralized logic
-    let outputDir = getBaseOutputPath();
-
-    if (subDir) outputDir = path.join(outputDir, subDir);
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
-    const filePath = path.join(outputDir, name);
-
-    // Base64
-    if (url.startsWith('data:')) {
-      const base64Data = url.split(';base64,').pop();
-      fs.writeFileSync(filePath, base64Data, { encoding: 'base64' });
-      return { success: true, path: filePath };
-    }
-
-    // Remote
-    if (url.startsWith('http')) {
-      return new Promise((resolve, reject) => {
-        const fileStream = fs.createWriteStream(filePath);
-        const protocol = url.startsWith('https') ? https : http;
-
-        const request = protocol.get(url, (response) => {
-          if (response.statusCode !== 200) {
-            fileStream.close();
-            fs.unlink(filePath, () => { });
-            reject(new Error(`HTTP ${response.statusCode}`));
-            return;
-          }
-          response.pipe(fileStream);
-          fileStream.on('finish', () => {
-            fileStream.close();
-            resolve({ success: true, path: filePath });
-          });
-        });
-
-        request.on('error', (err) => {
-          fs.unlink(filePath, () => { });
-          reject(err);
-        });
-      });
-    }
-
-    return { success: false, error: 'Unsupported URL protocol' };
-  } catch (err) {
-    console.error('RH Save File Error:', err);
-    return { success: false, error: err.message };
-  }
-});
 
 // 4. Decode Image - using duck_decoder.exe for encoded images
 // Duplicate legacy handler removed. See correct implementation below around line 2100.
@@ -2027,8 +2047,106 @@ ipcMain.handle('fs:get-default-path', async () => {
     return { success: false, error: error.message };
   }
 });
+// RunningHub 存檔
+// RunningHub 存檔
+// 通知後端生成縮略圖
+async function notifyBackendThumbnail(filePath, sourceDir = 'output') {
+  try {
+    const { net } = require('electron');
+    const url = `http://${CONFIG.backendHost}:${CONFIG.backendPort}/api/files/generate-thumbnail`;
+    const response = await net.fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: filePath, sourceDir })
+    });
+    if (!response.ok) {
+      console.warn('[Thumbnail Notify] Failed:', await response.text());
+    } else {
+      console.log('[Thumbnail Notify] Success for:', filePath);
+    }
+  } catch (e) {
+    console.warn('[Thumbnail Notify] Error:', e.message);
+  }
+}
+
+ipcMain.handle('rh-save-file', async (event, { url, name, subDir }) => {
+  console.log('[rh-save-file] Invoked. name:', name, 'subDir:', subDir);
+  try {
+    if (!url || !name) throw new Error('URL and name are required');
+
+    const baseDir = getBaseOutputPath();
+    const targetDir = subDir ? path.join(baseDir, subDir) : baseDir;
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const filePath = path.join(targetDir, name);
+
+    // Case 1: Base64 Data
+    if (url.startsWith('data:')) {
+      console.log('[rh-save-file] Saving from Base64...');
+      const base64Data = url.split(';base64,').pop();
+      fs.writeFileSync(filePath, base64Data, { encoding: 'base64' });
+      console.log('[rh-save-file] Saved successfully:', filePath);
+      notifyBackendThumbnail(filePath, subDir || 'output');
+      return { success: true, path: filePath };
+    }
+
+    // Case 2: Remote URL
+    console.log('[rh-save-file] Downloading using net:', url, 'to', filePath);
+    return new Promise((resolve) => {
+      const { net } = require('electron');
+      const request = net.request(url);
+
+      request.on('response', (response) => {
+        if (response.statusCode !== 200) {
+          resolve({ success: false, error: `Failed to fetch: ${response.statusCode}` });
+          return;
+        }
+
+        const fileStream = fs.createWriteStream(filePath);
+        response.on('data', (chunk) => {
+          fileStream.write(chunk);
+        });
+
+        response.on('end', () => {
+          fileStream.end();
+          fileStream.on('finish', () => {
+            console.log('[rh-save-file] Saved successfully:', filePath);
+            notifyBackendThumbnail(filePath, subDir || 'output');
+            resolve({ success: true, path: filePath });
+          });
+          fileStream.on('error', (err) => {
+            console.error('[rh-save-file] Write error:', err);
+            resolve({ success: false, error: err.message });
+          });
+        });
+
+        response.on('error', (err) => {
+          console.error('[rh-save-file] Response error:', err);
+          resolve({ success: false, error: err.message });
+        });
+      });
+
+      request.on('error', (error) => {
+        console.error('[rh-save-file] Request error:', error);
+        resolve({ success: false, error: error.message });
+      });
+
+      request.end();
+    });
+
+  } catch (error) {
+    console.error('[rh-save-file] Handler Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // RunningHub 圖片解碼
+console.log('⚡ [main.cjs] Registering rh-decode-image handler...');
 ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) => {
+  console.log('📦 [rh-decode-image] Handler invoked with filePath:', filePath);
   try {
     if (!buffer && !filePath) throw new Error('Buffer and filePath are empty');
 
@@ -2135,20 +2253,19 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
     }
 
     // 3. 執行解碼器
-    // usage: duck_decoder.exe --duck <input> --out <output>
-    const inputBaseName = path.basename(tempInputPath, path.extname(tempInputPath));
-    const tempOutputPath = path.join(outputDir, `temp_decoded_${Date.now()}_${inputBaseName}.png`);
+    // usage: duck_decoder.exe <input> (Positional argument style based on user feedback)
     const { execFile } = require('child_process');
 
     console.log('[Decoder] Running:', decoderPath);
-    console.log('[Decoder] Args:', ['--duck', tempInputPath, '--out', tempOutputPath]);
+    console.log('[Decoder] Args (Positional):', [tempInputPath]);
 
     await new Promise((resolve, reject) => {
       const options = {
+        cwd: path.dirname(tempInputPath), // Set CWD to input directory to avoid path issues
         env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       };
 
-      execFile(decoderPath, ['--duck', tempInputPath, '--out', tempOutputPath], options, (error, stdout, stderr) => {
+      execFile(decoderPath, [tempInputPath], options, (error, stdout, stderr) => {
         if (error) {
           console.warn('[Decoder] Exec warning:', error);
           const errStr = stderr || stdout || error.message || '';
@@ -2158,19 +2275,21 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
           if (errStr.includes('ValueError') || errStr.includes('Payload length invalid')) {
             reject(new Error('圖片未加密或格式不正確 (Not an encrypted image)'));
           } else {
-            // Return the raw error if unknown, stripping the "Failed to execute script" prefix if possible for clarity, 
-            // but keeping it simple for now or using a generic fallback.
-            // Actually, letting it fail here allows catching it below.
+            // If it succeeds but returns exit code 0, error might be null. 
+            // If exit code is non-zero, it lands here.
             reject(new Error(errStr || 'Decoder failed with unknown error'));
           }
           return;
         }
+        console.log('[Decoder] Stdout:', stdout);
         resolve(stdout);
       });
     });
 
-    // 4. 尋找輸出檔案 (Updated to use tempOutputPath)
-    const expectedOutputPath = tempOutputPath;
+    // 4. 尋找輸出檔案
+    // User reported: input.png -> input.png.png
+    const expectedOutputPath = tempInputPath + '.png';
+    console.log('[Decoder] Looking for output at:', expectedOutputPath);
 
     if (fs.existsSync(expectedOutputPath)) {
       // 重命名為最終檔案名
@@ -2212,6 +2331,9 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
 
       console.log('[Decoder] Success:', finalPath);
 
+      // 通知後端生成縮圖
+      notifyBackendThumbnail(finalPath, 'output');
+
       return {
         success: true,
         filePath: finalPath,
@@ -2219,7 +2341,9 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
         fileName: finalName
       };
     } else {
-      throw new Error('Decoder executed but no output file found. Check if image is encrypted.');
+      // Check if maybe it didn't append .png?
+      // Sometimes decoders replace the file? No, user said extraction "completed: ...png.png"
+      throw new Error(`Decoder executed but output file not found at ${expectedOutputPath}. Check if image is encrypted.`);
     }
 
   } catch (error) {
@@ -2229,3 +2353,5 @@ ipcMain.handle('rh-decode-image', async (event, { buffer, fileName, filePath }) 
     return { success: false, error: errorMsg };
   }
 });
+
+console.log('✅ [main.cjs] ALL IPC handlers registered (rh-save-file, rh-decode-image)');

@@ -3,19 +3,11 @@ import { Scan, Camera, Zap, LayoutTemplate } from 'lucide-react';
 import { cn } from '../utils/cn'; // Assuming utils/cn exists, otherwise I'll use simple string concat or check for classnames utility
 
 interface SideNavBarProps {
-    activePanel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover' | null;
-    onSelectPanel: (panel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover' | null) => void;
+    activePanels: string[];
+    onTogglePanel: (panel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover') => void;
 }
 
-const SideNavBar: React.FC<SideNavBarProps> = ({ activePanel, onSelectPanel }) => {
-    const handleToggle = (panel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover') => {
-        if (activePanel === panel) {
-            onSelectPanel(null);
-        } else {
-            onSelectPanel(panel);
-        }
-    };
-
+const SideNavBar: React.FC<SideNavBarProps> = ({ activePanels, onTogglePanel }) => {
     const NavItem = ({
         panel,
         icon: Icon,
@@ -24,30 +16,34 @@ const SideNavBar: React.FC<SideNavBarProps> = ({ activePanel, onSelectPanel }) =
         panel: 'reverse' | 'angle' | 'runninghub' | 'batch-cover',
         icon: React.ElementType,
         label: string
-    }) => (
-        <button
-            onClick={() => handleToggle(panel)}
-            className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 group relative",
-                activePanel === panel
-                    ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-            )}
-            title={label}
-        >
-            <Icon className="w-5 h-5" strokeWidth={activePanel === panel ? 2.5 : 2} />
+    }) => {
+        const isActive = activePanels.includes(panel);
 
-            {/* Tooltip */}
-            <span className="absolute left-14 px-2 py-1 bg-gray-900 border border-white/10 rounded-md text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                {label}
-            </span>
+        return (
+            <button
+                onClick={() => onTogglePanel(panel)}
+                className={cn(
+                    "w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 group relative",
+                    isActive
+                        ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                )}
+                title={label}
+            >
+                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
 
-            {/* Active Indicator */}
-            {activePanel === panel && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-r-full" />
-            )}
-        </button>
-    );
+                {/* Tooltip */}
+                <span className="absolute left-14 px-2 py-1 bg-gray-900 border border-white/10 rounded-md text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                    {label}
+                </span>
+
+                {/* Active Indicator */}
+                {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-r-full" />
+                )}
+            </button>
+        );
+    };
 
     return (
         <div className="flex flex-col items-center py-4 gap-4 w-[60px] border-r border-white/5 bg-black/20 backdrop-blur-md h-full z-20">
